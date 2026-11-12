@@ -43,6 +43,10 @@ The `/patients` workspace provides a protected patient directory with search, st
 
 Patient information is sensitive. Do not use real patient data in development or screenshots; production deployment still needs an approved privacy, retention, access-audit, and backup-encryption policy.
 
+## Appointment management
+
+The protected `/appointments` workspace supports scheduling, editing, deletion, lifecycle status updates, text search, status filters, date-range filters and pagination. Appointment creation loads active patients and doctors from the API. All scheduling rules and conflict detection remain server-side; the UI only provides immediate feedback and convenience.
+
 ## Authentication
 
 - The login form sends credentials directly to the Fastify API over HTTPS in production.

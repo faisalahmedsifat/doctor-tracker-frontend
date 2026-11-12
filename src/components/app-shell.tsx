@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Activity, Bell, ChevronDown, LayoutDashboard, Search, Settings2,
-  Stethoscope, Users, HeartPulse, Menu, LogOut, LoaderCircle,
+  Stethoscope, Users, HeartPulse, Menu, LogOut, LoaderCircle, CalendarDays,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -21,6 +21,7 @@ const navigation = [
   { label: "Overview", href: "/", icon: LayoutDashboard },
   { label: "Doctors", href: "/doctors", icon: Stethoscope },
   { label: "Patients", href: "/patients", icon: Users },
+  { label: "Appointments", href: "/appointments", icon: CalendarDays },
 ];
 
 function Navigation() {
@@ -52,7 +53,7 @@ export function AppShell({ children, admin }: Readonly<{ children: React.ReactNo
   const router = useRouter();
   const pathname = usePathname();
   const queryClient = useQueryClient();
-  const section = pathname === "/" ? "Overview" : pathname === "/doctors" ? "Doctors" : pathname.startsWith("/patients") ? "Patients" : "Workspace";
+  const section = pathname === "/" ? "Overview" : pathname.startsWith("/doctors") ? "Doctors" : pathname.startsWith("/patients") ? "Patients" : pathname.startsWith("/appointments") ? "Appointments" : "Workspace";
 
   const logoutMutation = useMutation({
     mutationFn: () => apiFetch<{ success: true }>("/auth/logout", { method: "POST" }),

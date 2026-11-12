@@ -59,6 +59,9 @@ const Patient =
       },
     ),
   );
+const Appointment =
+  mongoose.models.E2EAppointment ??
+  mongoose.model("E2EAppointment", new mongoose.Schema({}, { strict: false, collection: "appointments" }));
 
 let browser;
 let adminId;
@@ -202,6 +205,64 @@ try {
   if (updatedPatient?.lastName !== "Updated")
     throw new Error("Patient edit did not persist to MongoDB.");
 
+
+  const appointmentDoctorEmail = `e2e-appointment-doctor-${suffix}@example.com`;
+  const appointmentDoctorResponse = await page.request.post("http://localhost:4000/api/v1/doctors", {
+    data: {
+      firstName: "Schedule", lastName: "Doctor", email: appointmentDoctorEmail,
+      phone: "+8801700000077", specialty: "General Medicine",
+      licenseNumber: `E2E-AP-${suffix}`, yearsOfExperience: 7,
+      consultationFee: 1000, status: "active",
+    },
+  });
+  if (!appointmentDoctorResponse.ok()) throw new Error(`Could not create E2E appointment doctor: ${await appointmentDoctorResponse.text()}`);
+  const appointmentDoctor = (await appointmentDoctorResponse.json()).data.doctor;
+  await page.goto(`${baseUrl}/appointments`, { waitUntil: "networkidle" });
+  await page.getByRole("heading", { name: "Appointments", exact: true }).waitFor();
+  await page.getByRole("button", { name: "Schedule appointment" }).first().click();
+  const appointmentDialog = page.getByRole("dialog");
+  await appointmentDialog.locator("#appointment-patient").selectOption(patientId);
+  await appointmentDialog.locator("#appointment-doctor").selectOption(appointmentDoctor.id);
+  const appointmentDate = new Date(Date.now() + 4 * 86_400_000);
+  appointmentDate.setHours(10, 0, 0, 0);
+  const localDateTime = new Date(appointmentDate.getTime() - appointmentDate.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
+  await appointmentDialog.locator("#appointment-start").fill(localDateTime);
+  await appointmentDialog.locator("#appointment-reason").fill("E2E consultation");
+  await appointmentDialog.getByRole("button", { name: "Schedule appointment" }).click();
+  const appointmentRow = page.getByRole("row").filter({ hasText: "Browser Updated" });
+  await appointmentRow.waitFor();
+  const appointmentRecord = (await Appointment.find({}).lean()).find((item) => String(item.doctor) === appointmentDoctor.id && String(item.patient) === patientId);
+  if (!appointmentRecord) throw new Error("Appointment did not persist to MongoDB.");
+  const duplicateResponse = await page.request.post("http://localhost:4000/api/v1/appointments", {
+    data: { patientId, doctorId: appointmentDoctor.id, startAt: appointmentDate.toISOString(), durationMinutes: 30 },
+  });
+  if (duplicateResponse.status() !== 409) throw new Error("Overlapping appointment was not rejected.");
+  await appointmentRow.getByRole("button", { name: /Edit appointment for/ }).click();
+  const editAppointmentDialog = page.getByRole("dialog");
+  await editAppointmentDialog.getByLabel("Reason for visit").fill("Updated E2E consultation");
+  await editAppointmentDialog.getByRole("button", { name: "Save changes" }).click();
+  let editedAppointment = await Appointment.findById(appointmentRecord._id).lean();
+  for (let attempt = 0; editedAppointment?.reason !== "Updated E2E consultation" && attempt < 20; attempt += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    editedAppointment = await Appointment.findById(appointmentRecord._id).lean();
+  }
+  if (editedAppointment?.reason !== "Updated E2E consultation") throw new Error("Appointment edit did not persist.");
+  await appointmentRow.getByRole("combobox").click();
+  await page.getByRole("option", { name: "Confirmed" }).click();
+  let updatedAppointment = await Appointment.findById(appointmentRecord._id).lean();
+  for (let attempt = 0; updatedAppointment?.status !== "confirmed" && attempt < 20; attempt += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    updatedAppointment = await Appointment.findById(appointmentRecord._id).lean();
+  }
+  if (updatedAppointment?.status !== "confirmed") throw new Error("Appointment status update did not persist.");
+  await appointmentRow.getByRole("button", { name: /Delete appointment for/ }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Delete appointment" }).click();
+  await appointmentRow.waitFor({ state: "detached" });
+  if (await Appointment.findById(appointmentRecord._id).lean()) throw new Error("Appointment deletion did not persist.");
+  await Appointment.deleteMany({ doctor: appointmentDoctor.id }).catch(() => undefined);
+  await Doctor.deleteOne({ _id: appointmentDoctor.id }).catch(() => undefined);
+
+  await page.goto(`${baseUrl}/patients`, { waitUntil: "networkidle" });
   patientRow = page.getByRole("row").filter({ hasText: patientEmail });
   await patientRow.locator("button").last().click();
   await page.getByRole("menuitem", { name: "Delete patient" }).click();
@@ -239,12 +300,15 @@ try {
     throw new Error(`Browser console/runtime errors: ${failures.join(" | ")}`);
 
   console.log(
-    "E2E PASS: administrator login → doctor CRUD → patient CRUD → live dashboard → MongoDB persistence checks.",
+    "E2E PASS: administrator login → doctor CRUD → patient CRUD → appointment scheduling/conflict/status/delete → live dashboard → MongoDB persistence checks.",
   );
 } finally {
   if (browser) await browser.close();
   if (mongoose.connection.readyState) {
     await Doctor.deleteMany({ email }).catch(() => undefined);
+    const appointmentDoctors = await Doctor.find({ email: /^e2e-appointment-doctor-/ }).select("_id").lean();
+    if (appointmentDoctors.length) await Appointment.deleteMany({ doctor: { $in: appointmentDoctors.map((doctor) => doctor._id) } }).catch(() => undefined);
+    await Doctor.deleteMany({ email: /^e2e-appointment-doctor-/ }).catch(() => undefined);
     await Patient.deleteMany({ email: patientEmail }).catch(() => undefined);
     if (adminId) await Admin.deleteOne({ _id: adminId }).catch(() => undefined);
     await mongoose.disconnect();
