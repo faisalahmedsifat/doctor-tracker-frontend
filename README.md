@@ -3,10 +3,12 @@
 Next.js App Router application for the Doctor Tracker administration dashboard.
 
 ## Requirements
+
 - Node.js 22+
 - pnpm 12+
 
 ## Getting started
+
 ```bash
 pnpm install
 cp .env.example .env.local
@@ -18,6 +20,7 @@ Open http://localhost:3000.
 Start the backend and MongoDB before signing in. The frontend defaults to `http://localhost:4000/api/v1`.
 
 ## Stack
+
 - Next.js App Router + React + TypeScript
 - Tailwind CSS 4 + shadcn/ui
 - TanStack Query for client-side server state
@@ -30,7 +33,14 @@ The `/doctors` workspace is a server-authenticated route with a client-side data
 
 The API remains authoritative for validation, uniqueness and authorization. Do not treat hidden UI controls as access control.
 
+## Patient management
+
+The `/patients` workspace provides a protected patient directory with search, status filtering, pagination, create/edit forms, generated patient numbers, and doctor assignment. The API validates and persists patient records; assigned doctor details are resolved from the doctor collection.
+
+Patient information is sensitive. Do not use real patient data in development or screenshots; production deployment still needs an approved privacy, retention, access-audit, and backup-encryption policy.
+
 ## Authentication
+
 - The login form sends credentials directly to the Fastify API over HTTPS in production.
 - The API sets a signed, HttpOnly, SameSite=Lax access cookie; the frontend never reads or stores the JWT in JavaScript or localStorage.
 - Each protected route's server entry point calls the shared `requireAdmin()` helper, which reads the incoming HttpOnly cookie and verifies it with `GET /auth/me` before rendering protected content.
@@ -41,6 +51,7 @@ The API remains authoritative for validation, uniqueness and authorization. Do n
 For production, deploy the frontend and API on the same site (for example, `app.example.com` and `api.example.com`) and configure the backend `COOKIE_DOMAIN=.example.com`. The cookie must be visible to the frontend host so the Next.js server can forward it to the API for server-side verification. Configure the exact frontend origin in backend `FRONTEND_ORIGIN`.
 
 ## Scripts
+
 - `pnpm dev` — local development
 - `pnpm build` — production build
 - `pnpm start` — production server
@@ -49,4 +60,5 @@ For production, deploy the frontend and API on the same site (for example, `app.
 - `pnpm test:e2e` — run the Playwright browser workflow against the running production frontend and backend; requires Chrome at `/usr/bin/google-chrome`, MongoDB configured in `../backend/.env`, and an API/frontend already running at ports 4000/3000
 
 ## Configuration
+
 Set `NEXT_PUBLIC_API_URL` to the versioned backend API base URL. Browser API requests include credentials (`credentials: include`).
