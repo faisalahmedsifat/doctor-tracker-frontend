@@ -46,6 +46,7 @@ For production, deploy the frontend and API on the same site (for example, `app.
 - `pnpm start` — production server
 - `pnpm typecheck` — TypeScript validation
 - `pnpm lint` — lint application code
+- `pnpm test:e2e` — run the Playwright browser workflow against the running production frontend and backend; requires Chrome at `/usr/bin/google-chrome`, MongoDB configured in `../backend/.env`, and an API/frontend already running at ports 4000/3000
 
 ## Configuration
 Set `NEXT_PUBLIC_API_URL` to the versioned backend API base URL. Browser API requests include credentials (`credentials: include`).
