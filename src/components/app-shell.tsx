@@ -52,6 +52,7 @@ export function AppShell({ children, admin }: Readonly<{ children: React.ReactNo
   const router = useRouter();
   const pathname = usePathname();
   const queryClient = useQueryClient();
+  const section = pathname === "/" ? "Overview" : pathname === "/doctors" ? "Doctors" : pathname.startsWith("/patients") ? "Patients" : "Workspace";
 
   const logoutMutation = useMutation({
     mutationFn: () => apiFetch<{ success: true }>("/auth/logout", { method: "POST" }),
@@ -98,7 +99,7 @@ export function AppShell({ children, admin }: Readonly<{ children: React.ReactNo
               </SheetContent>
             </Sheet>
             <div className="hidden sm:block">
-              <p className="text-xs text-muted-foreground">Workspace / <span className="text-foreground">{pathname === "/" ? "Overview" : "Workspace"}</span></p>
+              <p className="text-xs text-muted-foreground">Workspace / <span className="text-foreground">{section}</span></p>
               <p className="text-sm font-semibold tracking-tight">Welcome back</p>
             </div>
             <div className="sm:hidden"><p className="text-sm font-semibold">Careflow</p></div>
