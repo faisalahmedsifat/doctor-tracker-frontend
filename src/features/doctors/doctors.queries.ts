@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api";
+import { dashboardKeys } from "@/features/dashboard/dashboard.queries";
 import type { DoctorInput, DoctorListParams, DoctorListResponse, DoctorResponse } from "./doctors.types";
 
 export const doctorKeys = {
@@ -32,7 +33,10 @@ export function useCreateDoctor() {
     mutationFn: (input: DoctorInput) => apiFetch<DoctorResponse>("/doctors", {
       method: "POST", body: JSON.stringify(input),
     }),
-    onSuccess: () => client.invalidateQueries({ queryKey: doctorKeys.all }),
+    onSuccess: () => Promise.all([
+      client.invalidateQueries({ queryKey: doctorKeys.all }),
+      client.invalidateQueries({ queryKey: dashboardKeys.overview }),
+    ]),
   });
 }
 export function useUpdateDoctor() {
@@ -43,6 +47,7 @@ export function useUpdateDoctor() {
     onSuccess: (_data, variables) => {
       client.invalidateQueries({ queryKey: doctorKeys.all });
       client.invalidateQueries({ queryKey: doctorKeys.detail(variables.id) });
+      client.invalidateQueries({ queryKey: dashboardKeys.overview });
     },
   });
 }
@@ -50,6 +55,9 @@ export function useDeleteDoctor() {
   const client = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => apiFetch<{ success: true }>(`/doctors/${id}`, { method: "DELETE" }),
-    onSuccess: () => client.invalidateQueries({ queryKey: doctorKeys.all }),
+    onSuccess: () => Promise.all([
+      client.invalidateQueries({ queryKey: doctorKeys.all }),
+      client.invalidateQueries({ queryKey: dashboardKeys.overview }),
+    ]),
   });
 }

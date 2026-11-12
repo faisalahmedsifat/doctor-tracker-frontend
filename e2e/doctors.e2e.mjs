@@ -177,6 +177,21 @@ try {
     throw new Error("Patient create did not persist to MongoDB.");
   const patientId = patientRecord._id.toString();
 
+  await page.goto(`${baseUrl}/`, { waitUntil: "networkidle" });
+  await page.getByRole("heading", { name: "Overview", exact: true }).waitFor();
+  await page.getByText("Browser Patient").waitFor();
+  await page.getByText("Live database records").waitFor();
+  const dashboardResponse = await page.request.get("http://localhost:4000/api/v1/dashboard/overview", {
+    headers: { cookie: await page.context().cookies().then((cookies) => cookies.map((item) => `${item.name}=${item.value}`).join("; ")) },
+  });
+  if (!dashboardResponse.ok()) throw new Error(`Dashboard API failed: ${dashboardResponse.status()}`);
+  const dashboardPayload = await dashboardResponse.json();
+  if (!dashboardPayload.data.recentPatients.some((item) => item.id === patientId))
+    throw new Error("Dashboard API did not include the newly created patient.");
+
+  await page.goto(`${baseUrl}/patients`, { waitUntil: "networkidle" });
+  patientRow = page.getByRole("row").filter({ hasText: patientEmail });
+  await patientRow.waitFor();
   await patientRow.locator("button").last().click();
   await page.getByRole("menuitem", { name: "Edit patient" }).click();
   const editPatientDialog = page.getByRole("dialog");
@@ -208,11 +223,23 @@ try {
   if (await Patient.findById(patientId).lean())
     throw new Error("Patient delete did not remove the MongoDB record.");
 
+  const dashboardRefreshPromise = page.waitForResponse(
+    (response) =>
+      response.request().method() === "GET" &&
+      response.url().includes("/api/v1/dashboard/overview"),
+  );
+  await page.goto(`${baseUrl}/`, { waitUntil: "networkidle" });
+  const dashboardRefresh = await dashboardRefreshPromise;
+  if (!dashboardRefresh.ok())
+    throw new Error("Dashboard did not refresh after patient deletion.");
+  if (await page.getByText("Browser Patient").count())
+    throw new Error("Deleted patient still appears in the live dashboard.");
+
   if (failures.length)
     throw new Error(`Browser console/runtime errors: ${failures.join(" | ")}`);
 
   console.log(
-    "E2E PASS: administrator login → doctor CRUD → patient CRUD → MongoDB persistence checks.",
+    "E2E PASS: administrator login → doctor CRUD → patient CRUD → live dashboard → MongoDB persistence checks.",
   );
 } finally {
   if (browser) await browser.close();

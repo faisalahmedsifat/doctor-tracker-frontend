@@ -27,6 +27,10 @@ Start the backend and MongoDB before signing in. The frontend defaults to `http:
 - React Hook Form + Zod for forms
 - Recharts for analytics
 
+## Dashboard
+
+The protected overview loads its metrics, seven-month registration trend, top-five doctor assignment distribution, and recent-patient list from `GET /api/v1/dashboard/overview`. No sample clinic data is shipped in the dashboard UI. TanStack Query refreshes the overview after doctor/patient mutations and on window focus; the manual refresh action is also available. The dashboard API deliberately returns only the patient fields needed for this summary.
+
 ## Doctor management
 
 The `/doctors` workspace is a server-authenticated route with a client-side data table. It supports server-side search, specialty/status filters, allow-listed sorting, bounded pagination, create/edit forms with React Hook Form + Zod, and destructive-delete confirmation. TanStack Query owns request caching and invalidation; form state stays local to the form.

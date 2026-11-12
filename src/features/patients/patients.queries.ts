@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api";
+import { dashboardKeys } from "@/features/dashboard/dashboard.queries";
 import type {
   PatientInput,
   PatientListResponse,
@@ -39,7 +40,10 @@ export function useCreatePatient() {
         method: "POST",
         body: JSON.stringify(input),
       }),
-    onSuccess: () => client.invalidateQueries({ queryKey: patientKeys.all }),
+    onSuccess: () => Promise.all([
+      client.invalidateQueries({ queryKey: patientKeys.all }),
+      client.invalidateQueries({ queryKey: dashboardKeys.overview }),
+    ]),
   });
 }
 export function useUpdatePatient() {
@@ -50,7 +54,10 @@ export function useUpdatePatient() {
         method: "PATCH",
         body: JSON.stringify(input),
       }),
-    onSuccess: () => client.invalidateQueries({ queryKey: patientKeys.all }),
+    onSuccess: () => Promise.all([
+      client.invalidateQueries({ queryKey: patientKeys.all }),
+      client.invalidateQueries({ queryKey: dashboardKeys.overview }),
+    ]),
   });
 }
 export function useDeletePatient() {
@@ -58,6 +65,9 @@ export function useDeletePatient() {
   return useMutation({
     mutationFn: (id: string) =>
       apiFetch<{ success: true }>(`/patients/${id}`, { method: "DELETE" }),
-    onSuccess: () => client.invalidateQueries({ queryKey: patientKeys.all }),
+    onSuccess: () => Promise.all([
+      client.invalidateQueries({ queryKey: patientKeys.all }),
+      client.invalidateQueries({ queryKey: dashboardKeys.overview }),
+    ]),
   });
 }
