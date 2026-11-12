@@ -22,6 +22,10 @@ const statusLabel: Record<AppointmentStatus, string> = {
 function localDate(value: string) {
   return new Intl.DateTimeFormat("en-BD", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
 }
+function localDayBoundary(value: string, nextDay = false) {
+  const [year, month, day] = value.split("-").map(Number);
+  return new Date(year!, month! - 1, day! + (nextDay ? 1 : 0)).toISOString();
+}
 function defaultDateTime() {
   const date = new Date(Date.now() + 86_400_000);
   date.setHours(9, 0, 0, 0);
@@ -48,7 +52,8 @@ export default function AppointmentsClient() {
   const params = useMemo(() => ({
     page, limit: 10, search: search.trim() || undefined,
     status: status === "all" ? undefined : status,
-    dateFrom: dateFrom || undefined, dateTo: dateTo || undefined,
+    dateFrom: dateFrom ? localDayBoundary(dateFrom) : undefined,
+    dateTo: dateTo ? localDayBoundary(dateTo, true) : undefined,
     sortOrder: "asc",
   }), [page, search, status, dateFrom, dateTo]);
   const query = useAppointments(params);
