@@ -1,15 +1,20 @@
 "use client";
 
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   Activity, Bell, ChevronDown, LayoutDashboard, Search, Settings2,
-  Stethoscope, Users, HeartPulse, Menu,
+  Stethoscope, Users, HeartPulse, Menu, LogOut, LoaderCircle,
 } from "lucide-react";
+import { toast } from "sonner";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { authKeys } from "@/features/auth/auth.queries";
+import type { Admin } from "@/features/auth/auth.types";
+import { apiFetch } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 const navigation = [
@@ -43,7 +48,24 @@ function Navigation() {
   );
 }
 
-export function AppShell({ children }: Readonly<{ children: React.ReactNode }>) {
+export function AppShell({ children, admin }: Readonly<{ children: React.ReactNode; admin: Admin }>) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const queryClient = useQueryClient();
+
+  const logoutMutation = useMutation({
+    mutationFn: () => apiFetch<{ success: true }>("/auth/logout", { method: "POST" }),
+    onSuccess: () => {
+      queryClient.setQueryData(authKeys.currentAdmin, null);
+      queryClient.removeQueries();
+      router.replace("/login");
+      toast.success("You have been signed out.");
+    },
+    onError: () => toast.error("Unable to sign out. Please try again."),
+  });
+
+  const initials = admin?.email.slice(0, 2).toUpperCase() ?? "AD";
+
   return (
     <div className="min-h-screen">
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-[248px] border-r bg-card px-4 py-5 lg:block">
@@ -60,7 +82,7 @@ export function AppShell({ children }: Readonly<{ children: React.ReactNode }>) 
         <div className="absolute bottom-5 left-4 right-4 rounded-xl border bg-muted/50 p-3">
           <div className="flex items-center gap-2">
             <div className="flex size-8 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700"><Activity className="size-4" /></div>
-            <div><p className="text-xs font-medium">All systems operational</p><p className="text-[10px] text-muted-foreground">Last checked just now</p></div>
+            <div><p className="text-xs font-medium">API connected</p><p className="text-[10px] text-muted-foreground">Session verified</p></div>
           </div>
         </div>
       </aside>
@@ -76,8 +98,8 @@ export function AppShell({ children }: Readonly<{ children: React.ReactNode }>) 
               </SheetContent>
             </Sheet>
             <div className="hidden sm:block">
-              <p className="text-xs text-muted-foreground">Workspace / <span className="text-foreground">Overview</span></p>
-              <p className="text-sm font-semibold tracking-tight">Good morning, Admin</p>
+              <p className="text-xs text-muted-foreground">Workspace / <span className="text-foreground">{pathname === "/" ? "Overview" : "Workspace"}</span></p>
+              <p className="text-sm font-semibold tracking-tight">Welcome back</p>
             </div>
             <div className="sm:hidden"><p className="text-sm font-semibold">Careflow</p></div>
           </div>
@@ -87,10 +109,21 @@ export function AppShell({ children }: Readonly<{ children: React.ReactNode }>) 
               <Input placeholder="Search anything..." className="h-9 border-0 bg-muted/70 pl-9 text-xs shadow-none focus-visible:ring-1" />
               <kbd className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded border bg-background px-1 text-[9px] text-muted-foreground">⌘ K</kbd>
             </div>
-            <Button variant="ghost" size="icon" className="relative size-9"><Bell className="size-[17px]" /><span className="absolute right-2 top-2 size-1.5 rounded-full bg-primary ring-2 ring-background" /></Button>
+            <Button variant="ghost" size="icon" className="relative size-9" aria-label="Notifications"><Bell className="size-[17px]" /></Button>
             <div className="hidden h-7 w-px bg-border sm:block" />
-            <Avatar className="size-8"><AvatarFallback className="bg-primary/10 text-xs font-semibold text-primary">AD</AvatarFallback></Avatar>
-            <div className="hidden sm:block"><p className="text-xs font-medium">Admin User</p><p className="text-[10px] text-muted-foreground">Administrator</p></div>
+            <Avatar className="size-8"><AvatarFallback className="bg-primary/10 text-xs font-semibold text-primary">{initials}</AvatarFallback></Avatar>
+            <div className="hidden max-w-[180px] sm:block"><p className="truncate text-xs font-medium">{admin?.email ?? "Administrator"}</p><p className="text-[10px] text-muted-foreground">Administrator</p></div>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-9"
+              title="Sign out"
+              aria-label="Sign out"
+              disabled={logoutMutation.isPending}
+              onClick={() => logoutMutation.mutate()}
+            >
+              {logoutMutation.isPending ? <LoaderCircle className="size-4 animate-spin" /> : <LogOut className="size-4" />}
+            </Button>
             <ChevronDown className="hidden size-3.5 text-muted-foreground sm:block" />
           </div>
         </header>
