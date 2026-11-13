@@ -102,6 +102,37 @@ try {
   await page.waitForURL("**/");
   await page.goto(`${baseUrl}/doctors`, { waitUntil: "networkidle" });
   await page.getByRole("heading", { name: "Doctors", exact: true }).waitFor();
+  await page.screenshot({ path: "docs/screenshots/doctors-desktop.png", fullPage: true });
+
+  // Shared shell state: command navigation, persisted desktop preference, and mobile drawer.
+  await page.keyboard.press("Control+k");
+  const commandDialog = page.getByRole("dialog");
+  const commandInput = commandDialog.getByRole("textbox", { name: "Search workspace pages" });
+  await commandInput.fill("patients");
+  await commandInput.press("Enter");
+  await page.waitForURL("**/patients");
+  await page.goto(`${baseUrl}/doctors`, { waitUntil: "networkidle" });
+  await page.keyboard.press("Control+k");
+  const createDoctorCommand = page.getByRole("dialog");
+  await createDoctorCommand.getByRole("textbox", { name: "Search workspace pages" }).fill("add doctor");
+  await createDoctorCommand.getByRole("link", { name: /Add doctor/ }).click();
+  await page.waitForURL("**/doctors");
+  await page.getByRole("dialog").getByLabel("First name").waitFor();
+  await page.getByRole("dialog").getByRole("button", { name: "Cancel" }).click();
+
+  await page.getByRole("button", { name: "Collapse sidebar" }).click();
+  await page.reload({ waitUntil: "networkidle" });
+  await page.getByRole("button", { name: "Expand sidebar" }).waitFor();
+  await page.getByRole("button", { name: "Expand sidebar" }).click();
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByRole("button", { name: "Open navigation" }).click();
+  const mobileNavigation = page.getByRole("dialog");
+  await mobileNavigation.getByRole("link", { name: "Patients" }).click();
+  await page.waitForURL("**/patients");
+  await mobileNavigation.waitFor({ state: "hidden" });
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto(`${baseUrl}/doctors`, { waitUntil: "networkidle" });
 
   await page.getByRole("button", { name: "Add doctor" }).first().click();
   const dialog = page.getByRole("dialog");
@@ -110,6 +141,7 @@ try {
   await dialog.getByLabel("Email address").fill(email);
   await dialog.getByLabel("Phone number").fill("+8801700000099");
   await dialog.getByLabel("Specialty").fill("Cardiology");
+  await dialog.getByLabel("Hospital").fill("E2E City Hospital");
   await dialog.getByLabel("Medical license number").fill(`E2E-${suffix}`);
   await dialog.getByLabel("Years of experience").fill("9");
   await dialog.getByLabel("Consultation fee (BDT)").fill("1700");
@@ -162,8 +194,19 @@ try {
     throw new Error(
       `Delete API returned success but MongoDB still contains doctor ${remaining._id}.`,
     );
+  const patientDoctorEmail = `e2e-patient-doctor-${suffix}@example.com`;
+  const patientDoctorResponse = await page.request.post("http://localhost:4000/api/v1/doctors", {
+    data: {
+      firstName: "Patient", lastName: "CareDoctor", email: patientDoctorEmail,
+      phone: "+8801700000066", specialty: "Pediatrics", licenseNumber: `E2E-PD-${suffix}`,
+      yearsOfExperience: 6, consultationFee: 900, status: "active",
+    },
+  });
+  if (!patientDoctorResponse.ok()) throw new Error(`Could not create E2E patient doctor: ${await patientDoctorResponse.text()}`);
+
   await page.goto(`${baseUrl}/patients`, { waitUntil: "networkidle" });
   await page.getByRole("heading", { name: "Patients", exact: true }).waitFor();
+  await page.screenshot({ path: "docs/screenshots/patients-desktop.png", fullPage: true });
   await page.getByRole("button", { name: "Add patient" }).first().click();
   const patientDialog = page.getByRole("dialog");
   await patientDialog.getByLabel("First name").fill("Browser");
@@ -171,6 +214,10 @@ try {
   await patientDialog.getByLabel("Date of birth").fill("1991-06-15");
   await patientDialog.getByLabel("Phone number").fill("+8801700000088");
   await patientDialog.getByLabel("Email address").fill(patientEmail);
+  await patientDialog.locator("#patient-assigned-doctor").click();
+  const assignedDoctorPicker = patientDialog.getByRole("combobox", { name: "Search doctors by name or specialty…" });
+  await assignedDoctorPicker.fill("Patient CareDoctor");
+  await patientDialog.getByRole("option", { name: /Patient CareDoctor/ }).first().click();
   await patientDialog.getByRole("button", { name: "Add patient" }).click();
 
   let patientRow = page.getByRole("row").filter({ hasText: patientEmail });
@@ -212,36 +259,54 @@ try {
       firstName: "Schedule", lastName: "Doctor", email: appointmentDoctorEmail,
       phone: "+8801700000077", specialty: "General Medicine",
       licenseNumber: `E2E-AP-${suffix}`, yearsOfExperience: 7,
+      hospital: "E2E General Hospital",
+      workingHours: Array.from({ length: 7 }, (_, dayOfWeek) => ({ dayOfWeek, startTime: "09:00", endTime: "18:00" })),
       consultationFee: 1000, status: "active",
     },
   });
   if (!appointmentDoctorResponse.ok()) throw new Error(`Could not create E2E appointment doctor: ${await appointmentDoctorResponse.text()}`);
   const appointmentDoctor = (await appointmentDoctorResponse.json()).data.doctor;
   await page.goto(`${baseUrl}/appointments`, { waitUntil: "networkidle" });
-  await page.getByRole("heading", { name: "Appointments", exact: true }).waitFor();
-  await page.getByRole("button", { name: "Schedule appointment" }).first().click();
+  await page.getByRole("heading", { name: "Appointment desk", exact: true }).waitFor();
+  await page.screenshot({ path: "docs/screenshots/appointment-desk-desktop.png", fullPage: true });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.screenshot({ path: "docs/screenshots/appointment-desk-mobile.png", fullPage: true });
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.getByRole("tab", { name: "Upcoming" }).click();
+  await page.getByRole("button", { name: "Book appointment" }).first().click();
   const appointmentDialog = page.getByRole("dialog");
-  await appointmentDialog.locator("#appointment-patient").selectOption(patientId);
-  await appointmentDialog.locator("#appointment-doctor").selectOption(appointmentDoctor.id);
+  await appointmentDialog.getByLabel("Patient phone or patient number").fill("+8801700000088");
+  await appointmentDialog.getByRole("button", { name: "Choose the matching patient…" }).click();
+  const patientPicker = appointmentDialog.getByRole("combobox", { name: "Search patient name or number…" });
+  await patientPicker.fill("Browser Updated");
+  await appointmentDialog.getByRole("option", { name: /Browser Updated/ }).click();
+  await appointmentDialog.getByRole("button", { name: "Select a doctor…" }).click();
+  const doctorPicker = appointmentDialog.getByRole("combobox", { name: "Search by doctor name or specialty…" });
+  await doctorPicker.fill("Schedule Doctor");
+  await appointmentDialog.getByRole("option", { name: /Schedule Doctor/ }).first().click();
   const appointmentDate = new Date(Date.now() + 4 * 86_400_000);
   appointmentDate.setHours(10, 0, 0, 0);
   const localDateTime = new Date(appointmentDate.getTime() - appointmentDate.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
   await appointmentDialog.locator("#appointment-start").fill(localDateTime);
+  await appointmentDialog.getByRole("button", { name: /10:00/ }).click();
   await appointmentDialog.locator("#appointment-reason").fill("E2E consultation");
-  await appointmentDialog.getByRole("button", { name: "Schedule appointment" }).click();
-  await page.getByPlaceholder("Search appointments...").fill("Browser Updated");
+  const bookingResponsePromise = page.waitForResponse(response => response.request().method() === "POST" && response.url().includes("/api/v1/appointments"));
+  await appointmentDialog.getByRole("button", { name: "Confirm booking" }).click();
+  const bookingResponse = await bookingResponsePromise;
+  if (!bookingResponse.ok()) throw new Error(`Appointment booking failed (${bookingResponse.status()}): ${await bookingResponse.text()}`);
+  await page.getByPlaceholder("Patient name, phone, ID or reason…").fill("Browser Updated");
   const appointmentRow = page.getByRole("row").filter({ hasText: "Browser Updated" });
   await appointmentRow.waitFor();
   const appointmentRecord = (await Appointment.find({}).lean()).find((item) => String(item.doctor) === appointmentDoctor.id && String(item.patient) === patientId);
   if (!appointmentRecord) throw new Error("Appointment did not persist to MongoDB.");
   const duplicateResponse = await page.request.post("http://localhost:4000/api/v1/appointments", {
-    data: { patientId, doctorId: appointmentDoctor.id, startAt: appointmentDate.toISOString(), durationMinutes: 30 },
+    data: { patientId, doctorId: appointmentDoctor.id, startAt: new Date(`${localDateTime}:00+06:00`).toISOString(), durationMinutes: 30 },
   });
   if (duplicateResponse.status() !== 409) throw new Error("Overlapping appointment was not rejected.");
-  await appointmentRow.getByRole("button", { name: /Edit appointment for/ }).click();
+  await appointmentRow.locator("button").nth(1).click();
   const editAppointmentDialog = page.getByRole("dialog");
   await editAppointmentDialog.getByLabel("Reason for visit").fill("Updated E2E consultation");
-  await editAppointmentDialog.getByRole("button", { name: "Save changes" }).click();
+  await editAppointmentDialog.getByRole("button", { name: "Save appointment" }).click();
   let editedAppointment = await Appointment.findById(appointmentRecord._id).lean();
   for (let attempt = 0; editedAppointment?.reason !== "Updated E2E consultation" && attempt < 20; attempt += 1) {
     await new Promise((resolve) => setTimeout(resolve, 100));
@@ -256,7 +321,7 @@ try {
     updatedAppointment = await Appointment.findById(appointmentRecord._id).lean();
   }
   if (updatedAppointment?.status !== "confirmed") throw new Error("Appointment status update did not persist.");
-  await appointmentRow.getByRole("button", { name: /Delete appointment for/ }).click();
+  await appointmentRow.locator("button").nth(2).click();
   const deleteAppointmentResponsePromise = page.waitForResponse(
     (response) => response.request().method() === "DELETE" && response.url().includes("/api/v1/appointments/"),
   );
@@ -301,6 +366,7 @@ try {
       response.url().includes("/api/v1/dashboard/overview"),
   );
   await page.goto(`${baseUrl}/`, { waitUntil: "networkidle" });
+  await page.screenshot({ path: "docs/screenshots/dashboard-desktop.png", fullPage: true });
   const dashboardRefresh = await dashboardRefreshPromise;
   if (!dashboardRefresh.ok())
     throw new Error("Dashboard did not refresh after patient deletion.");
@@ -311,12 +377,13 @@ try {
     throw new Error(`Browser console/runtime errors: ${failures.join(" | ")}`);
 
   console.log(
-    "E2E PASS: administrator login → doctor CRUD → patient CRUD → appointment scheduling/conflict/status/delete → live dashboard → MongoDB persistence checks.",
+    "E2E PASS: administrator login → command palette and navigation → persisted sidebar preference → mobile navigation → doctor CRUD → searchable patient doctor assignment → patient CRUD → receptionist-first phone lookup and patient registration entry → doctor hours and appointment booking → scheduling conflict/status/delete → live dashboard → MongoDB persistence checks.",
   );
 } finally {
   if (browser) await browser.close();
   if (mongoose.connection.readyState) {
     await Doctor.deleteMany({ email }).catch(() => undefined);
+    await Doctor.deleteMany({ email: /^e2e-patient-doctor-/ }).catch(() => undefined);
     const appointmentDoctors = await Doctor.find({ email: /^e2e-appointment-doctor-/ }).select("_id").lean();
     if (appointmentDoctors.length) await Appointment.deleteMany({ doctor: { $in: appointmentDoctors.map((doctor) => doctor._id) } }).catch(() => undefined);
     await Doctor.deleteMany({ email: /^e2e-appointment-doctor-/ }).catch(() => undefined);

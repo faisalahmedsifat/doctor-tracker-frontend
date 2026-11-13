@@ -7,6 +7,7 @@ import { z } from "zod";
 import { LoaderCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { SearchableSelect } from "@/components/searchable-select";
 import {
   Select,
   SelectContent,
@@ -28,6 +29,7 @@ const schema = z.object({
   email: z.union([z.string().trim().email(), z.literal("")]),
   address: z.string().max(300),
   bloodGroup: z.string(),
+  condition: z.string().max(500),
   emergencyContactName: z.string().max(120),
   emergencyContactPhone: z.string(),
   assignedDoctorId: z.string(),
@@ -44,6 +46,7 @@ const blank: Values = {
   email: "",
   address: "",
   bloodGroup: "",
+  condition: "",
   emergencyContactName: "",
   emergencyContactPhone: "",
   assignedDoctorId: "",
@@ -67,10 +70,12 @@ const fields = [
 
 export function PatientForm({
   patient,
+  initialPhone = "",
   onCancel,
   onSuccess,
 }: {
   patient?: Patient;
+  initialPhone?: string;
   onCancel: () => void;
   onSuccess: () => void;
 }) {
@@ -99,14 +104,15 @@ export function PatientForm({
             email: patient.email ?? "",
             address: patient.address ?? "",
             bloodGroup: patient.bloodGroup ?? "",
+            condition: patient.condition ?? "",
             emergencyContactName: patient.emergencyContactName ?? "",
             emergencyContactPhone: patient.emergencyContactPhone ?? "",
             assignedDoctorId: patient.assignedDoctor?.id ?? "",
             status: patient.status,
           }
-        : blank,
+        : { ...blank, phone: initialPhone },
     );
-  }, [patient, form]);
+  }, [patient, form, initialPhone]);
 
   async function submit(values: Values) {
     const input: PatientInput = {
@@ -118,6 +124,7 @@ export function PatientForm({
       email: values.email || null,
       address: values.address || null,
       bloodGroup: values.bloodGroup || null,
+      condition: values.condition.trim() || null,
       emergencyContactName: values.emergencyContactName || null,
       emergencyContactPhone: values.emergencyContactPhone || null,
       assignedDoctorId: values.assignedDoctorId || null,
@@ -167,6 +174,10 @@ export function PatientForm({
             )}
           </div>
         ))}
+        <div className="space-y-1.5 sm:col-span-2">
+          <label htmlFor="patient-condition" className="text-xs font-medium">Patient condition / diagnosis</label>
+          <Input id="patient-condition" placeholder="e.g. Type 2 diabetes, hypertension" {...form.register("condition")} className="h-9 text-sm" />
+        </div>
         <div className="space-y-1.5">
           <label className="text-xs font-medium">Gender</label>
           <Select
@@ -227,27 +238,23 @@ export function PatientForm({
         </div>
         <div className="space-y-1.5 sm:col-span-2">
           <label className="text-xs font-medium">Assigned doctor</label>
-          <Select
+          <SearchableSelect
+            id="patient-assigned-doctor"
             value={assignedDoctorValue || "unassigned"}
-            onValueChange={(value) =>
-              form.setValue(
-                "assignedDoctorId",
-                value === "unassigned" ? "" : (value ?? ""),
-              )
-            }
-          >
-            <SelectTrigger className="h-9 w-full">
-              <SelectValue placeholder="Unassigned" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="unassigned">Unassigned</SelectItem>
-              {doctors.data?.doctors.map((doctor) => (
-                <SelectItem key={doctor.id} value={doctor.id}>
-                  Dr. {doctor.firstName} {doctor.lastName} · {doctor.specialty}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            onValueChange={(value) => form.setValue("assignedDoctorId", value === "unassigned" ? "" : value, { shouldDirty: true, shouldValidate: true })}
+            placeholder="Unassigned"
+            searchPlaceholder="Search doctors by name or specialty…"
+            disabled={doctors.isLoading || doctors.isError}
+            options={[
+              { value: "unassigned", label: "Unassigned", description: "No primary doctor" },
+              ...(doctors.data?.doctors ?? []).map((doctor) => ({
+                value: doctor.id,
+                label: `Dr. ${doctor.firstName} ${doctor.lastName}`,
+                description: doctor.specialty,
+              })),
+            ]}
+          />
+          {doctors.isError && <p className="text-[11px] text-destructive">Could not load doctors. Please try again.</p>}
         </div>
       </div>
       {form.formState.errors.root && (

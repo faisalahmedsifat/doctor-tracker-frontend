@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   CirclePlus,
   LoaderCircle,
@@ -61,6 +62,9 @@ export default function PatientsClient() {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<"all" | PatientStatus>("all");
   const [page, setPage] = useState(1);
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [condition, setCondition] = useState("");
   const [formOpen, setFormOpen] = useState(false);
   const [selected, setSelected] = useState<Patient | undefined>();
   const [deleteTarget, setDeleteTarget] = useState<Patient | null>(null);
@@ -72,13 +76,24 @@ export default function PatientsClient() {
       status: status === "all" ? undefined : status,
       sortBy: "createdAt",
       sortOrder: "desc",
+      dateFrom: dateFrom ? new Date(`${dateFrom}T00:00:00+06:00`).toISOString() : undefined,
+      dateTo: dateTo ? new Date(`${dateTo}T00:00:00+06:00`).toISOString() : undefined,
+      condition: condition.trim() || undefined,
     }),
-    [page, search, status],
+    [page, search, status, dateFrom, dateTo, condition],
   );
   const query = usePatients(params);
   const remove = useDeletePatient();
   const patients = query.data?.patients ?? [];
   const pagination = query.data?.pagination;
+
+  const action = useSearchParams().get("action");
+  useEffect(() => {
+    if (action === "create") {
+      window.requestAnimationFrame(() => { setSelected(undefined); setFormOpen(true); });
+      window.history.replaceState(null, "", window.location.pathname);
+    }
+  }, [action]);
 
   async function confirmDelete() {
     if (!deleteTarget) return;
@@ -156,6 +171,9 @@ export default function PatientsClient() {
                 className="h-9 pl-9 text-xs"
               />
             </div>
+            <Input aria-label="Filter by registration date from" type="date" value={dateFrom} onChange={e => { setDateFrom(e.target.value); setPage(1); }} className="h-9 text-xs" />
+            <Input aria-label="Filter by registration date to" type="date" min={dateFrom || undefined} value={dateTo} onChange={e => { setDateTo(e.target.value); setPage(1); }} className="h-9 text-xs" />
+            <Input aria-label="Filter by patient condition" placeholder="Condition / diagnosis" value={condition} onChange={e => { setCondition(e.target.value); setPage(1); }} className="h-9 text-xs" />
             <select
               aria-label="Filter by status"
               value={status}
@@ -216,6 +234,7 @@ export default function PatientsClient() {
                   <TableHead>Contact</TableHead>
                   <TableHead>Date of birth</TableHead>
                   <TableHead>Assigned doctor</TableHead>
+                  <TableHead>Condition</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="w-10" />
                 </TableRow>
@@ -243,6 +262,7 @@ export default function PatientsClient() {
                     <TableCell className="text-xs">
                       {patient.assignedDoctor?.fullName ?? "Unassigned"}
                     </TableCell>
+                    <TableCell className="max-w-[180px] truncate text-xs">{patient.condition ?? "Not recorded"}</TableCell>
                     <TableCell>
                       <Badge
                         variant="secondary"
@@ -329,7 +349,7 @@ export default function PatientsClient() {
         )}
       </Card>
       <Dialog open={formOpen} onOpenChange={setFormOpen}>
-        <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
+        <DialogContent className="max-h-[94vh] w-[calc(100vw-2rem)] max-w-4xl overflow-y-auto p-6 sm:p-8">
           <DialogHeader>
             <DialogTitle>
               {selected ? "Edit patient" : "Add a patient"}

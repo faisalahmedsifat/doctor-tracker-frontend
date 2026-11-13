@@ -8,6 +8,7 @@ export type Appointment = {
   durationMinutes: number;
   reason: string | null;
   notes: string | null;
+  scheduleOverrideReason: string | null;
   status: AppointmentStatus;
   createdAt: string;
   updatedAt: string;
@@ -19,6 +20,7 @@ export type AppointmentInput = {
   durationMinutes: number;
   reason?: string | null;
   notes?: string | null;
+  scheduleOverrideReason?: string | null;
   status?: AppointmentStatus;
 };
 export type AppointmentListResponse = {

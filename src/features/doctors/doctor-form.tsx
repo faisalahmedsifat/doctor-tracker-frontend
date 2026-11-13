@@ -17,10 +17,12 @@ const formSchema = z.object({
   email: z.string().trim().email("Enter a valid email address.").max(254),
   phone: z.string().trim().min(7, "Enter a valid phone number.").max(30),
   specialty: z.string().trim().min(2, "Specialty is required.").max(100),
+  hospital: z.string().trim().min(2, "Hospital is required.").max(160),
   licenseNumber: z.string().trim().min(2, "License number is required.").max(50),
   yearsOfExperience: z.coerce.number().int().min(0).max(70),
   consultationFee: z.coerce.number().min(0).max(1000000),
   status: z.enum(["active", "inactive"]),
+  workingHours: z.array(z.object({ dayOfWeek: z.number(), enabled: z.boolean(), startTime: z.string(), endTime: z.string() })),
 });
 type FormInput = z.input<typeof formSchema>;
 type FormValues = z.output<typeof formSchema>;
@@ -31,14 +33,16 @@ const fields: { name: keyof FormValues; label: string; placeholder: string; type
   { name: "email", label: "Email address", placeholder: "doctor@clinic.com", type: "email" },
   { name: "phone", label: "Phone number", placeholder: "+880 1XXX XXXXXX", type: "tel" },
   { name: "specialty", label: "Specialty", placeholder: "e.g. Cardiology" },
+  { name: "hospital", label: "Hospital", placeholder: "e.g. Square Hospital" },
   { name: "licenseNumber", label: "Medical license number", placeholder: "e.g. BM-12345" },
   { name: "yearsOfExperience", label: "Years of experience", placeholder: "5", type: "number" },
   { name: "consultationFee", label: "Consultation fee (BDT)", placeholder: "1000", type: "number" },
 ];
 
 const emptyValues: FormValues = {
-  firstName: "", lastName: "", email: "", phone: "", specialty: "", licenseNumber: "",
+  firstName: "", lastName: "", email: "", phone: "", specialty: "", hospital: "", licenseNumber: "",
   yearsOfExperience: 0, consultationFee: 0, status: "active",
+  workingHours: Array.from({ length: 7 }, (_, dayOfWeek) => ({ dayOfWeek, enabled: false, startTime: "09:00", endTime: "17:00" })),
 };
 
 export function DoctorForm({ doctor, onSuccess, onCancel }: {
@@ -50,22 +54,26 @@ export function DoctorForm({ doctor, onSuccess, onCancel }: {
     resolver: zodResolver(formSchema),
     defaultValues: doctor ? {
       firstName: doctor.firstName, lastName: doctor.lastName, email: doctor.email,
-      phone: doctor.phone, specialty: doctor.specialty, licenseNumber: doctor.licenseNumber,
+      phone: doctor.phone, specialty: doctor.specialty, hospital: doctor.hospital ?? "", licenseNumber: doctor.licenseNumber,
       yearsOfExperience: doctor.yearsOfExperience, consultationFee: doctor.consultationFee,
       status: doctor.status,
+      workingHours: Array.from({ length: 7 }, (_, dayOfWeek) => { const entry = doctor.workingHours?.find(h => h.dayOfWeek === dayOfWeek); return { dayOfWeek, enabled: Boolean(entry), startTime: entry?.startTime ?? "09:00", endTime: entry?.endTime ?? "17:00" }; }),
     } : emptyValues,
   });
   useEffect(() => { form.reset(doctor ? {
     firstName: doctor.firstName, lastName: doctor.lastName, email: doctor.email,
-    phone: doctor.phone, specialty: doctor.specialty, licenseNumber: doctor.licenseNumber,
+    phone: doctor.phone, specialty: doctor.specialty, hospital: doctor.hospital ?? "", licenseNumber: doctor.licenseNumber,
     yearsOfExperience: doctor.yearsOfExperience, consultationFee: doctor.consultationFee,
     status: doctor.status,
+    workingHours: Array.from({ length: 7 }, (_, dayOfWeek) => { const entry = doctor.workingHours?.find(h => h.dayOfWeek === dayOfWeek); return { dayOfWeek, enabled: Boolean(entry), startTime: entry?.startTime ?? "09:00", endTime: entry?.endTime ?? "17:00" }; }),
   } : emptyValues); }, [doctor, form]);
 
   const pending = create.isPending || update.isPending;
   const currentStatus = useWatch({ control: form.control, name: "status" });
+  const workingHoursValues = useWatch({ control: form.control, name: "workingHours" });
   async function submit(values: FormValues) {
-    const input: DoctorInput = { ...values, email: values.email.trim().toLowerCase(), licenseNumber: values.licenseNumber.trim().toUpperCase() };
+    const { workingHours, ...details } = values;
+    const input: DoctorInput = { ...details, workingHours: workingHours.filter(day => day.enabled).map(({ dayOfWeek, startTime, endTime }) => ({ dayOfWeek, startTime, endTime })), email: values.email.trim().toLowerCase(), licenseNumber: values.licenseNumber.trim().toUpperCase() };
     try {
       if (doctor) await update.mutateAsync({ id: doctor.id, input });
       else await create.mutateAsync(input);
@@ -88,6 +96,17 @@ export function DoctorForm({ doctor, onSuccess, onCancel }: {
             {form.formState.errors[field.name] && <p className="text-[11px] text-destructive">{form.formState.errors[field.name]?.message}</p>}
           </div>
         ))}
+        <div className="space-y-3 sm:col-span-2">
+          <div><p className="text-xs font-semibold">Weekly working hours</p><p className="text-[11px] text-muted-foreground">Leave a day disabled when the doctor is not available. Times use Asia/Dhaka (UTC+6).</p></div>
+          {(["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"] as const).map((day, index) => {
+            const enabled = workingHoursValues?.[index]?.enabled ?? false;
+            return <div key={day} className="grid grid-cols-[minmax(90px,1fr)_auto_auto] items-center gap-2 rounded-lg border p-2">
+              <label className="flex items-center gap-2 text-xs"><input type="checkbox" {...form.register(`workingHours.${index}.enabled`)} />{day}</label>
+              <Input aria-label={`${day} start time`} type="time" disabled={!enabled} className="h-8 w-[112px] text-xs" {...form.register(`workingHours.${index}.startTime`)} />
+              <Input aria-label={`${day} end time`} type="time" disabled={!enabled} className="h-8 w-[112px] text-xs" {...form.register(`workingHours.${index}.endTime`)} />
+            </div>;
+          })}
+        </div>
         <div className="space-y-1.5">
           <label className="text-xs font-medium">Account status</label>
           <Select value={currentStatus} onValueChange={(value) => form.setValue("status", value as "active" | "inactive", { shouldDirty: true })}>

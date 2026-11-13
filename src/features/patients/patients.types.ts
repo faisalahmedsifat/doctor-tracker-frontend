@@ -10,6 +10,7 @@ export type Patient = {
   email: string | null;
   address: string | null;
   bloodGroup: string | null;
+  condition: string | null;
   emergencyContactName: string | null;
   emergencyContactPhone: string | null;
   assignedDoctor: { id: string; fullName: string; specialty: string } | null;
@@ -26,6 +27,7 @@ export type PatientInput = {
   email?: string | null;
   address?: string | null;
   bloodGroup?: string | null;
+  condition?: string | null;
   emergencyContactName?: string | null;
   emergencyContactPhone?: string | null;
   assignedDoctorId?: string | null;

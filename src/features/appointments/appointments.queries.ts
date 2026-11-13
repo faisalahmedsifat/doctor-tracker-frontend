@@ -14,8 +14,9 @@ function queryString(params: Record<string, string | number | undefined>) {
   });
   return query.toString();
 }
-export function useAppointments(params: Record<string, string | number | undefined>) {
+export function useAppointments(params: Record<string, string | number | undefined>, enabled = true) {
   return useQuery({
+    enabled,
     queryKey: appointmentKeys.list(params),
     queryFn: () => apiFetch<AppointmentListResponse>(`/appointments?${queryString(params)}`),
     select: (response) => response.data,

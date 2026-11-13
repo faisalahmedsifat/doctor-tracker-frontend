@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, ChevronRight, CirclePlus,
   Filter, LoaderCircle, MoreHorizontal, Pencil, Search, Stethoscope, Trash2, Users,
@@ -27,6 +28,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DoctorForm } from "@/features/doctors/doctor-form";
+import { apiFetch } from "@/lib/api";
 import { doctorKeys, useDeleteDoctor, useDoctors } from "@/features/doctors/doctors.queries";
 import type { Doctor, DoctorStatus } from "@/features/doctors/doctors.types";
 
@@ -38,22 +40,45 @@ export default function DoctorsPage() {
   const [status, setStatus] = useState("all");
   const [specialty, setSpecialty] = useState("all");
   const [page, setPage] = useState(1);
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [sortBy, setSortBy] = useState<"name" | "specialty" | "email" | "createdAt" | "consultationFee">("name");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [formOpen, setFormOpen] = useState(false);
   const [selectedDoctor, setSelectedDoctor] = useState<Doctor | undefined>();
   const [deleteTarget, setDeleteTarget] = useState<Doctor | null>(null);
+  const [patientsDoctor, setPatientsDoctor] = useState<Doctor | null>(null);
   const deleteDoctor = useDeleteDoctor();
+  const assignedPatientsQuery = useQuery({
+    queryKey: ["doctors", patientsDoctor?.id, "patients"],
+    enabled: Boolean(patientsDoctor),
+    queryFn: () => apiFetch<{ success: true; data: { patients: { id: string; patientNumber: string; firstName: string; lastName: string; phone: string; condition: string | null; status: string; createdAt: string }[]; pagination: { total: number; page: number; limit: number; totalPages: number } } }>(`/doctors/${patientsDoctor!.id}/patients?page=1&limit=100`),
+  });
+  const unassignPatient = useMutation({
+    mutationFn: ({ doctorId, patientId }: { doctorId: string; patientId: string }) => apiFetch(`/doctors/${doctorId}/patients/${patientId}`, { method: "DELETE" }),
+    onSuccess: () => { void assignedPatientsQuery.refetch(); void queryClient.invalidateQueries({ queryKey: ["patients"] }); void queryClient.invalidateQueries({ queryKey: doctorKeys.all }); toast.success("Patient unassigned. Their record was preserved."); },
+    onError: () => toast.error("Could not unassign this patient."),
+  });
 
   const params = useMemo(() => ({
     page, limit: 10, search: search.trim() || undefined,
     specialty: specialty === "all" ? undefined : specialty,
     status: status === "all" ? undefined : status as DoctorStatus,
     sortBy, sortOrder,
-  }), [page, search, specialty, status, sortBy, sortOrder]);
+    dateFrom: dateFrom ? new Date(`${dateFrom}T00:00:00+06:00`).toISOString() : undefined,
+    dateTo: dateTo ? new Date(`${dateTo}T00:00:00+06:00`).toISOString() : undefined,
+  }), [page, search, specialty, status, sortBy, sortOrder, dateFrom, dateTo]);
   const { data, isLoading, isError, isFetching, refetch } = useDoctors(params);
   const doctors = data?.doctors ?? [];
   const pagination = data?.pagination;
+
+  const action = useSearchParams().get("action");
+  useEffect(() => {
+    if (action === "create") {
+      window.requestAnimationFrame(() => { setSelectedDoctor(undefined); setFormOpen(true); });
+      window.history.replaceState(null, "", window.location.pathname);
+    }
+  }, [action]);
 
   function openCreate() { setSelectedDoctor(undefined); setFormOpen(true); }
   function openEdit(doctor: Doctor) { setSelectedDoctor(doctor); setFormOpen(true); }
@@ -98,6 +123,8 @@ export default function DoctorsPage() {
               <SelectTrigger className="h-9 w-full text-xs sm:w-[170px]"><SelectValue placeholder="All specialties" /></SelectTrigger>
               <SelectContent><SelectItem value="all">All specialties</SelectItem>{specialties.map((item) => <SelectItem key={item} value={item}>{item}</SelectItem>)}</SelectContent>
             </Select>
+            <Input aria-label="Doctors created from" type="date" value={dateFrom} onChange={e => { setDateFrom(e.target.value); setPage(1); }} className="h-9 text-xs sm:w-[145px]" />
+            <Input aria-label="Doctors created to" type="date" min={dateFrom || undefined} value={dateTo} onChange={e => { setDateTo(e.target.value); setPage(1); }} className="h-9 text-xs sm:w-[145px]" />
             <Select value={status} onValueChange={(value) => { setStatus(value ?? "all"); setPage(1); }}>
               <SelectTrigger className="h-9 w-full text-xs sm:w-[130px]"><SelectValue placeholder="All statuses" /></SelectTrigger>
               <SelectContent><SelectItem value="all">All statuses</SelectItem><SelectItem value="active">Active</SelectItem><SelectItem value="inactive">Inactive</SelectItem></SelectContent>
@@ -117,7 +144,7 @@ export default function DoctorsPage() {
               <TableHeader><TableRow className="bg-muted/30 hover:bg-muted/30">
                 <TableHead className="pl-5"><button onClick={() => toggleSort("name")} className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-wider">Doctor {sortBy === "name" ? sortOrder === "asc" ? <ArrowUp className="size-3" /> : <ArrowDown className="size-3" /> : <ArrowUpDown className="size-3" />}</button></TableHead>
                 <TableHead><button onClick={() => toggleSort("specialty")} className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-wider">Specialty {sortBy === "specialty" ? sortOrder === "asc" ? <ArrowUp className="size-3" /> : <ArrowDown className="size-3" /> : <ArrowUpDown className="size-3" />}</button></TableHead>
-                <TableHead className="text-[10px] uppercase tracking-wider">Contact</TableHead>
+                <TableHead className="text-[10px] uppercase tracking-wider">Hospital / contact</TableHead>
                 <TableHead className="text-[10px] uppercase tracking-wider">Experience</TableHead>
                 <TableHead><button onClick={() => toggleSort("consultationFee")} className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-wider">Fee {sortBy === "consultationFee" ? sortOrder === "asc" ? <ArrowUp className="size-3" /> : <ArrowDown className="size-3" /> : <ArrowUpDown className="size-3" />}</button></TableHead>
                 <TableHead className="text-[10px] uppercase tracking-wider">Status</TableHead><TableHead className="w-10 pr-4" />
@@ -126,11 +153,11 @@ export default function DoctorsPage() {
                 {doctors.map((doctor) => <TableRow key={doctor.id}>
                   <TableCell className="py-3.5 pl-5"><div className="flex items-center gap-3"><div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">{doctor.firstName[0]}{doctor.lastName[0]}</div><div className="min-w-0"><p className="truncate text-xs font-semibold">Dr. {doctor.firstName} {doctor.lastName}</p><p className="mt-0.5 truncate text-[10px] text-muted-foreground">{doctor.licenseNumber}</p></div></div></TableCell>
                   <TableCell><Badge variant="secondary" className="font-normal">{doctor.specialty}</Badge></TableCell>
-                  <TableCell><p className="text-xs">{doctor.email}</p><p className="mt-0.5 text-[10px] text-muted-foreground">{doctor.phone}</p></TableCell>
+                  <TableCell><p className="text-xs">{doctor.hospital}</p><p className="mt-0.5 text-[10px] text-muted-foreground">{doctor.email} · {doctor.phone}</p></TableCell>
                   <TableCell className="text-xs">{doctor.yearsOfExperience} years</TableCell>
                   <TableCell className="text-xs font-medium">৳{doctor.consultationFee.toLocaleString("en-BD")}</TableCell>
                   <TableCell><Badge variant="secondary" className={doctor.status === "active" ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-50" : "bg-slate-100 text-slate-600 hover:bg-slate-100"}>{doctor.status === "active" ? "Active" : "Inactive"}</Badge></TableCell>
-                  <TableCell className="pr-4"><DropdownMenu><DropdownMenuTrigger render={<Button variant="ghost" size="icon" className="size-8"><MoreHorizontal className="size-4" /></Button>} /><DropdownMenuContent align="end"><DropdownMenuItem onClick={() => openEdit(doctor)}><Pencil className="mr-2 size-3.5" /> Edit doctor</DropdownMenuItem><DropdownMenuSeparator /><DropdownMenuItem variant="destructive" onClick={() => setDeleteTarget(doctor)}><Trash2 className="mr-2 size-3.5" /> Delete doctor</DropdownMenuItem></DropdownMenuContent></DropdownMenu></TableCell>
+                  <TableCell className="pr-4"><DropdownMenu><DropdownMenuTrigger render={<Button variant="ghost" size="icon" className="size-8"><MoreHorizontal className="size-4" /></Button>} /><DropdownMenuContent align="end"><DropdownMenuItem onClick={() => setPatientsDoctor(doctor)}><Users className="mr-2 size-3.5" /> View patients</DropdownMenuItem><DropdownMenuItem onClick={() => openEdit(doctor)}><Pencil className="mr-2 size-3.5" /> Edit doctor</DropdownMenuItem><DropdownMenuSeparator /><DropdownMenuItem variant="destructive" onClick={() => setDeleteTarget(doctor)}><Trash2 className="mr-2 size-3.5" /> Delete doctor</DropdownMenuItem></DropdownMenuContent></DropdownMenu></TableCell>
                 </TableRow>)}
               </TableBody>
             </Table>
@@ -142,8 +169,15 @@ export default function DoctorsPage() {
         )}
       </Card>
 
+      <Dialog open={Boolean(patientsDoctor)} onOpenChange={open => { if (!open) setPatientsDoctor(null); }}>
+        <DialogContent className="max-h-[90vh] w-[calc(100vw-2rem)] max-w-3xl overflow-y-auto">
+          <DialogHeader><DialogTitle>Patients assigned to Dr. {patientsDoctor?.firstName} {patientsDoctor?.lastName}</DialogTitle><DialogDescription>Unassigning removes the doctor relationship only. The patient&apos;s medical record remains in the clinic directory.</DialogDescription></DialogHeader>
+          {assignedPatientsQuery.isLoading ? <div className="py-10 text-center text-sm text-muted-foreground">Loading assigned patients…</div> : assignedPatientsQuery.isError ? <div className="py-10 text-center text-sm text-destructive">Could not load assigned patients. <Button size="sm" variant="outline" onClick={() => void assignedPatientsQuery.refetch()}>Retry</Button></div> : (assignedPatientsQuery.data?.data.patients.length ?? 0) === 0 ? <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">No patients are currently assigned to this doctor.</div> : <div className="overflow-x-auto"><Table><TableHeader><TableRow><TableHead>Patient</TableHead><TableHead>Phone</TableHead><TableHead>Condition</TableHead><TableHead className="w-28"/></TableRow></TableHeader><TableBody>{assignedPatientsQuery.data!.data.patients.map(patient => <TableRow key={patient.id}><TableCell><p className="text-xs font-medium">{patient.firstName} {patient.lastName}</p><p className="text-[10px] text-muted-foreground">{patient.patientNumber}</p></TableCell><TableCell className="text-xs">{patient.phone}</TableCell><TableCell className="max-w-[180px] truncate text-xs">{patient.condition ?? "Not recorded"}</TableCell><TableCell><Button size="sm" variant="outline" disabled={unassignPatient.isPending} onClick={() => { if (patientsDoctor) unassignPatient.mutate({ doctorId: patientsDoctor.id, patientId: patient.id }); }}>Unassign</Button></TableCell></TableRow>)}</TableBody></Table></div>}
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={formOpen} onOpenChange={setFormOpen}>
-        <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
+        <DialogContent className="max-h-[94vh] w-[calc(100vw-2rem)] max-w-4xl overflow-y-auto p-6 sm:p-8">
           <DialogHeader><DialogTitle>{selectedDoctor ? "Edit doctor" : "Add a doctor"}</DialogTitle><DialogDescription>{selectedDoctor ? "Update this doctor's professional and contact information." : "Enter the details below to add a doctor to your clinic directory."}</DialogDescription></DialogHeader>
           <DoctorForm doctor={selectedDoctor} onCancel={() => setFormOpen(false)} onSuccess={() => { setFormOpen(false); toast.success(selectedDoctor ? "Doctor updated." : "Doctor created."); }} />
         </DialogContent>
