@@ -129,7 +129,7 @@ export function AppShell({ children, admin }: Readonly<{ children: React.ReactNo
         </div>}
       </aside>
 
-      <div className={cn("transition-[padding] duration-200 ease-out motion-reduce:transition-none", sidebarCollapsed ? "lg:pl-[76px]" : "lg:pl-[248px]")}>
+      <div data-sidebar-collapsed={sidebarCollapsed} className="app-shell-content transition-[padding] duration-200 ease-out motion-reduce:transition-none">
         <header className="sticky top-0 z-20 flex h-[68px] items-center justify-between border-b bg-background/95 px-4 backdrop-blur sm:px-7">
           <div className="flex min-w-0 items-center gap-3">
             <Sheet open={mobileNavigationOpen} onOpenChange={setMobileNavigationOpen}>

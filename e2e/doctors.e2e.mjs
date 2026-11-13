@@ -117,8 +117,8 @@ try {
   await createDoctorCommand.getByRole("textbox", { name: "Search workspace pages" }).fill("add doctor");
   await createDoctorCommand.getByRole("link", { name: /Add doctor/ }).click();
   await page.waitForURL("**/doctors");
-  await page.getByRole("dialog").getByLabel("First name").waitFor();
-  await page.getByRole("dialog").getByRole("button", { name: "Cancel" }).click();
+  await page.getByLabel("First name").waitFor();
+  await page.getByRole("button", { name: "Cancel" }).click();
 
   await page.getByRole("button", { name: "Collapse sidebar" }).click();
   await page.reload({ waitUntil: "networkidle" });
@@ -135,17 +135,17 @@ try {
   await page.goto(`${baseUrl}/doctors`, { waitUntil: "networkidle" });
 
   await page.getByRole("button", { name: "Add doctor" }).first().click();
-  const dialog = page.getByRole("dialog");
-  await dialog.getByLabel("First name").fill("E2E");
-  await dialog.getByLabel("Last name").fill("Automation");
-  await dialog.getByLabel("Email address").fill(email);
-  await dialog.getByLabel("Phone number").fill("+8801700000099");
-  await dialog.getByLabel("Specialty").fill("Cardiology");
-  await dialog.getByLabel("Hospital").fill("E2E City Hospital");
-  await dialog.getByLabel("Medical license number").fill(`E2E-${suffix}`);
-  await dialog.getByLabel("Years of experience").fill("9");
-  await dialog.getByLabel("Consultation fee (BDT)").fill("1700");
-  await dialog.getByRole("button", { name: "Add doctor" }).click();
+  await page.screenshot({ path: "docs/screenshots/doctor-form-desktop.png", fullPage: true });
+  await page.getByLabel("First name").fill("E2E");
+  await page.getByLabel("Last name").fill("Automation");
+  await page.getByLabel("Email address").fill(email);
+  await page.getByLabel("Phone number").fill("+8801700000099");
+  await page.getByLabel("Specialty").fill("Cardiology");
+  await page.getByLabel("Hospital").fill("E2E City Hospital");
+  await page.getByLabel("Medical license number").fill(`E2E-${suffix}`);
+  await page.getByLabel("Years of experience").fill("9");
+  await page.getByLabel("Consultation fee (BDT)").fill("1700");
+  await page.getByRole("button", { name: "Add doctor" }).click();
 
   const row = page.getByRole("row").filter({ hasText: email });
   await row.waitFor();
@@ -159,9 +159,8 @@ try {
   await row.waitFor();
   await row.locator("button").last().click();
   await page.getByRole("menuitem", { name: "Edit doctor" }).click();
-  const editDialog = page.getByRole("dialog");
-  await editDialog.getByLabel("Specialty").fill("Neurology");
-  await editDialog.getByRole("button", { name: "Save changes" }).click();
+  await page.getByLabel("Specialty").fill("Neurology");
+  await page.getByRole("button", { name: "Save changes" }).click();
   await page.getByText("Neurology").first().waitFor();
   const updated = await Doctor.findOne({ email }).lean();
   if (updated?.specialty !== "Neurology")
@@ -208,17 +207,23 @@ try {
   await page.getByRole("heading", { name: "Patients", exact: true }).waitFor();
   await page.screenshot({ path: "docs/screenshots/patients-desktop.png", fullPage: true });
   await page.getByRole("button", { name: "Add patient" }).first().click();
-  const patientDialog = page.getByRole("dialog");
-  await patientDialog.getByLabel("First name").fill("Browser");
-  await patientDialog.getByLabel("Last name").fill("Patient");
-  await patientDialog.getByLabel("Date of birth").fill("1991-06-15");
-  await patientDialog.getByLabel("Phone number").fill("+8801700000088");
-  await patientDialog.getByLabel("Email address").fill(patientEmail);
-  await patientDialog.locator("#patient-assigned-doctor").click();
-  const assignedDoctorPicker = patientDialog.getByRole("combobox", { name: "Search doctors by name or specialty…" });
+  await page.screenshot({ path: "docs/screenshots/patient-form-desktop.png", fullPage: true });
+  await page.setViewportSize({ width: 390, height: 844 });
+  console.log("PATIENT MOBILE GEOMETRY", await page.evaluate(() => ({ innerWidth, clientWidth: document.documentElement.clientWidth, scrollWidth: document.documentElement.scrollWidth, bodyWidth: document.body.scrollWidth, rootFontSize: getComputedStyle(document.documentElement).fontSize, lg: matchMedia("(min-width: 64rem)").matches, mainPadding: getComputedStyle(document.querySelector("main")).paddingLeft, wrapperPadding: getComputedStyle(document.querySelector("main").parentElement).paddingLeft, wrapperRect: document.querySelector("main").parentElement.getBoundingClientRect().toJSON(), main: document.querySelector("main")?.getBoundingClientRect().toJSON(), root: document.querySelector("#__next")?.getBoundingClientRect().toJSON() })));
+  await page.screenshot({ path: "docs/screenshots/patient-form-mobile.png", fullPage: true });
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.getByLabel("First name").fill("Browser");
+  await page.getByLabel("Last name").fill("Patient");
+  await page.getByLabel("Date of birth").fill("1991-06-15");
+  await page.getByLabel("Phone number").fill("+8801700000088");
+  await page.getByLabel("Email address").fill(patientEmail);
+  await page.locator("#patient-assigned-doctor").waitFor({ state: "visible" });
+  await page.waitForFunction(() => !document.querySelector("#patient-assigned-doctor")?.hasAttribute("disabled"));
+  await page.locator("#patient-assigned-doctor").click();
+  const assignedDoctorPicker = page.getByRole("combobox", { name: "Search doctors by name or specialty…" });
   await assignedDoctorPicker.fill("Patient CareDoctor");
-  await patientDialog.getByRole("option", { name: /Patient CareDoctor/ }).first().click();
-  await patientDialog.getByRole("button", { name: "Add patient" }).click();
+  await page.getByRole("option", { name: /Patient CareDoctor/ }).first().click();
+  await page.getByRole("button", { name: "Add patient" }).click();
 
   let patientRow = page.getByRole("row").filter({ hasText: patientEmail });
   await patientRow.waitFor();
@@ -244,9 +249,8 @@ try {
   await patientRow.waitFor();
   await patientRow.locator("button").last().click();
   await page.getByRole("menuitem", { name: "Edit patient" }).click();
-  const editPatientDialog = page.getByRole("dialog");
-  await editPatientDialog.getByLabel("Last name").fill("Updated");
-  await editPatientDialog.getByRole("button", { name: "Save changes" }).click();
+  await page.getByLabel("Last name").fill("Updated");
+  await page.getByRole("button", { name: "Save changes" }).click();
   await page.getByText("Browser Updated").waitFor();
   const updatedPatient = await Patient.findById(patientId).lean();
   if (updatedPatient?.lastName !== "Updated")
@@ -274,24 +278,24 @@ try {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.getByRole("tab", { name: "Upcoming" }).click();
   await page.getByRole("button", { name: "Book appointment" }).first().click();
-  const appointmentDialog = page.getByRole("dialog");
-  await appointmentDialog.getByLabel("Patient phone or patient number").fill("+8801700000088");
-  await appointmentDialog.getByRole("button", { name: "Choose the matching patient…" }).click();
-  const patientPicker = appointmentDialog.getByRole("combobox", { name: "Search patient name or number…" });
+  await page.screenshot({ path: "docs/screenshots/appointment-form-desktop.png", fullPage: true });
+  await page.getByLabel("Patient phone or patient number").fill("+8801700000088");
+  await page.getByRole("button", { name: "Choose the matching patient…" }).click();
+  const patientPicker = page.getByRole("combobox", { name: "Search patient name or number…" });
   await patientPicker.fill("Browser Updated");
-  await appointmentDialog.getByRole("option", { name: /Browser Updated/ }).click();
-  await appointmentDialog.getByRole("button", { name: "Select a doctor…" }).click();
-  const doctorPicker = appointmentDialog.getByRole("combobox", { name: "Search by doctor name or specialty…" });
+  await page.getByRole("option", { name: /Browser Updated/ }).click();
+  await page.getByRole("button", { name: "Select a doctor…" }).click();
+  const doctorPicker = page.getByRole("combobox", { name: "Search by doctor name or specialty…" });
   await doctorPicker.fill("Schedule Doctor");
-  await appointmentDialog.getByRole("option", { name: /Schedule Doctor/ }).first().click();
+  await page.getByRole("option", { name: /Schedule Doctor/ }).first().click();
   const appointmentDate = new Date(Date.now() + 4 * 86_400_000);
   appointmentDate.setHours(10, 0, 0, 0);
   const localDateTime = new Date(appointmentDate.getTime() - appointmentDate.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
-  await appointmentDialog.locator("#appointment-start").fill(localDateTime);
-  await appointmentDialog.getByRole("button", { name: /10:00/ }).click();
-  await appointmentDialog.locator("#appointment-reason").fill("E2E consultation");
+  await page.locator("#appointment-start").fill(localDateTime);
+  await page.getByRole("button", { name: /10:00/ }).click();
+  await page.locator("#appointment-reason").fill("E2E consultation");
   const bookingResponsePromise = page.waitForResponse(response => response.request().method() === "POST" && response.url().includes("/api/v1/appointments"));
-  await appointmentDialog.getByRole("button", { name: "Confirm booking" }).click();
+  await page.getByRole("button", { name: "Confirm booking" }).click();
   const bookingResponse = await bookingResponsePromise;
   if (!bookingResponse.ok()) throw new Error(`Appointment booking failed (${bookingResponse.status()}): ${await bookingResponse.text()}`);
   await page.getByPlaceholder("Patient name, phone, ID or reason…").fill("Browser Updated");
@@ -304,9 +308,8 @@ try {
   });
   if (duplicateResponse.status() !== 409) throw new Error("Overlapping appointment was not rejected.");
   await appointmentRow.locator("button").nth(1).click();
-  const editAppointmentDialog = page.getByRole("dialog");
-  await editAppointmentDialog.getByLabel("Reason for visit").fill("Updated E2E consultation");
-  await editAppointmentDialog.getByRole("button", { name: "Save appointment" }).click();
+  await page.getByLabel("Reason for visit").fill("Updated E2E consultation");
+  await page.getByRole("button", { name: "Save appointment" }).click();
   let editedAppointment = await Appointment.findById(appointmentRecord._id).lean();
   for (let attempt = 0; editedAppointment?.reason !== "Updated E2E consultation" && attempt < 20; attempt += 1) {
     await new Promise((resolve) => setTimeout(resolve, 100));

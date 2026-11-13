@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { SearchableSelect } from "@/components/searchable-select";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -115,6 +114,7 @@ export default function AppointmentsClient() {
   useEffect(() => { if (action === "create") { window.requestAnimationFrame(() => { setEditing(null); setPatientPhone(""); setPatientId(""); setDoctorId(""); setStartAt(defaultDateTime()); setDuration("30"); setReason(""); setNotes(""); setOverrideReason(""); setOpen(true); }); window.history.replaceState(null,"",window.location.pathname); } }, [action]);
 
   function resetForm() {
+    setRegisterOpen(false);
     setEditing(null); setPatientPhone(""); setPatientId(""); setDoctorId(""); setStartAt(defaultDateTime());
     setDuration("30"); setReason(""); setNotes(""); setOverrideReason("");
   }
@@ -146,6 +146,7 @@ export default function AppointmentsClient() {
   }
 
   return <div className="space-y-6">
+    <div className={open ? "hidden" : "space-y-6"}>
     <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
       <div><div className="mb-2 flex items-center gap-2 text-xs text-muted-foreground"><CalendarDays className="size-3.5" /> Workspace / Appointments</div><h1 className="text-[26px] font-semibold tracking-tight">Appointment desk</h1><p className="mt-1 text-sm text-muted-foreground">A receptionist-first queue for booking and managing callers&apos; visits.</p></div>
       <Button className="h-9 gap-2" onClick={openCreate}><CirclePlus className="size-4" /> Book appointment</Button>
@@ -182,12 +183,13 @@ export default function AppointmentsClient() {
         <div className="flex items-center justify-between border-t px-4 py-3"><p className="text-[11px] text-muted-foreground">{query.data?.pagination.total ?? 0} appointments · Page {page} of {Math.max(1,query.data?.pagination.totalPages ?? 1)}</p><div className="flex gap-2"><Button size="sm" variant="outline" disabled={page<=1||query.isFetching} onClick={()=>setPage(v=>v-1)}>Previous</Button><Button size="sm" variant="outline" disabled={!query.data||page>=query.data.pagination.totalPages||query.isFetching} onClick={()=>setPage(v=>v+1)}>Next</Button></div></div>
       </>}
     </Card>
+    </div>
 
-    <Dialog open={open} onOpenChange={setOpen}><DialogContent className="max-h-[94vh] w-[calc(100vw-2rem)] max-w-3xl overflow-y-auto p-0">
-      <div className="border-b px-6 py-5"><DialogHeader><DialogTitle>{editing ? "Update appointment" : "Book a patient appointment"}</DialogTitle><DialogDescription>Start with the caller&apos;s phone number, identify the patient, then select a doctor and time.</DialogDescription></DialogHeader></div>
-      <form onSubmit={submit} className="space-y-6 p-6">
+    {open && <section className="mx-auto w-full max-w-5xl space-y-6 pb-10">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b pb-5"><div><p className="text-sm text-muted-foreground">Appointments / {editing ? "Edit booking" : "New booking"}</p><h1 className="mt-1 text-2xl font-semibold tracking-tight">{editing ? "Update appointment" : "Book an appointment"}</h1><p className="mt-1 text-sm text-muted-foreground">Find the caller, confirm the clinician and choose an available time.</p></div><Button type="button" variant="outline" onClick={()=>{setOpen(false);setRegisterOpen(false);}}>Back to appointment desk</Button></div>
+      <Card className="gap-0 overflow-hidden border-border/70 py-0 shadow-none"><form onSubmit={submit} className="space-y-6 p-6 sm:p-8">
         <section className="space-y-3"><div className="flex items-center gap-2"><Phone className="size-4 text-primary"/><h3 className="text-sm font-semibold">1. Identify the caller</h3></div>
-          <div className="space-y-1.5"><label htmlFor="caller-phone" className="text-xs font-medium">Patient phone or patient number</label><Input id="caller-phone" autoFocus value={patientPhone} onChange={e=>{setPatientPhone(e.target.value);setPatientId("");}} placeholder="Enter the phone number or PT-…" className="h-10"/></div>
+          <div className="space-y-1.5"><label htmlFor="caller-phone" className="text-xs font-medium">Patient phone or patient number</label><Input id="caller-phone" autoComplete="tel" inputMode="tel" autoFocus value={patientPhone} onChange={e=>{setPatientPhone(e.target.value);setPatientId("");}} placeholder="Enter the phone number or PT-…" className="h-10"/></div>
           <div className="space-y-1.5"><label className="text-xs font-medium">Matching patient record</label><SearchableSelect value={patientId} onValueChange={setPatientId} placeholder={patientPhone ? "Choose the matching patient…" : "Enter phone or patient number first"} searchPlaceholder="Search patient name or number…" disabled={!patientPhone || patientQuery.isLoading || patientQuery.isError} options={patients.map(p=>({value:p.id,label:p.firstName+" "+p.lastName,description:p.patientNumber+" · "+p.phone}))}/></div>
           {patientPhone && !patientQuery.isLoading && patients.length===0 && <div className="rounded-lg border border-dashed p-3 text-xs text-muted-foreground">No active patient matched. <button type="button" className="font-medium text-primary underline" onClick={()=>setRegisterOpen(true)}>Register a new patient</button> without leaving this booking.</div>}
           {patientId && <p className="text-xs text-emerald-700">Patient selected. The existing patient record will be reused.</p>}
@@ -203,10 +205,10 @@ export default function AppointmentsClient() {
           {doctorId && outsideHours && <div className="space-y-1.5 rounded-lg border border-amber-300 bg-amber-50 p-3 dark:bg-amber-950/20"><p className="text-xs font-semibold text-amber-900 dark:text-amber-200">Admin override required</p><p className="text-[11px] text-amber-800 dark:text-amber-200">This date/time is outside the doctor&apos;s configured hours or the doctor has no schedule configured. Record why the clinic is approving this exception.</p><label htmlFor="schedule-override-reason" className="text-xs font-medium">Override reason</label><Input id="schedule-override-reason" required minLength={5} maxLength={500} value={overrideReason} onChange={e=>setOverrideReason(e.target.value)} placeholder="e.g. Doctor approved an urgent additional consultation"/></div>}
           <div className="grid gap-3 sm:grid-cols-2"><div className="space-y-1.5"><label htmlFor="appointment-reason" className="text-xs font-medium">Reason for visit</label><Input id="appointment-reason" value={reason} onChange={e=>setReason(e.target.value)} maxLength={500} placeholder="e.g. Follow-up"/></div><div className="space-y-1.5"><label htmlFor="appointment-notes" className="text-xs font-medium">Internal notes</label><Input id="appointment-notes" value={notes} onChange={e=>setNotes(e.target.value)} maxLength={2000} placeholder="Optional"/></div></div>
         </section>
-        <div className="flex justify-end gap-2 border-t pt-4"><Button type="button" variant="outline" onClick={()=>setOpen(false)}>Cancel</Button><Button type="submit" disabled={create.isPending||update.isPending||!patientId||!doctorId||doctorsQuery.isLoading||scheduleQuery.isLoading||(outsideHours&&overrideReason.trim().length<5)}>{(create.isPending||update.isPending)&&<LoaderCircle className="mr-2 size-4 animate-spin"/>}{editing?"Save appointment":"Confirm booking"}</Button></div>
-      </form>
-    </DialogContent></Dialog>
-    <Dialog open={registerOpen} onOpenChange={setRegisterOpen}><DialogContent className="max-h-[90vh] w-[calc(100vw-2rem)] max-w-3xl overflow-y-auto"><DialogHeader><DialogTitle>Register a new patient</DialogTitle><DialogDescription>Create the patient record for this caller, then return to complete the booking.</DialogDescription></DialogHeader><PatientForm initialPhone={patientPhone} onCancel={()=>setRegisterOpen(false)} onSuccess={()=>{setRegisterOpen(false);void patientQuery.refetch();toast.success("Patient registered. Select the new record to continue.");}} /></DialogContent></Dialog>
+        <div className="flex justify-end gap-2 border-t pt-4"><Button type="button" variant="outline" onClick={()=>{setOpen(false);setRegisterOpen(false);}}>Cancel</Button><Button type="submit" disabled={create.isPending||update.isPending||!patientId||!doctorId||doctorsQuery.isLoading||scheduleQuery.isLoading||(outsideHours&&overrideReason.trim().length<5)}>{(create.isPending||update.isPending)&&<LoaderCircle className="mr-2 size-4 animate-spin"/>}{editing?"Save appointment":"Confirm booking"}</Button></div>
+      </form></Card>
+      {registerOpen && <Card className="gap-0 overflow-hidden border-primary/30 py-0 shadow-none"><div className="border-b px-6 py-4"><h2 className="text-sm font-semibold">Register this caller</h2><p className="mt-1 text-xs text-muted-foreground">Create the patient record here, then continue this booking.</p></div><div className="p-6"><PatientForm initialPhone={patientPhone} onCancel={()=>setRegisterOpen(false)} onSuccess={()=>{setRegisterOpen(false);void patientQuery.refetch();toast.success("Patient registered. Select the new record to continue.");}} /></div></Card>}
+    </section>}
     <AlertDialog open={Boolean(removeTarget)} onOpenChange={v=>{if(!v)setRemoveTarget(null);}}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Delete appointment?</AlertDialogTitle><AlertDialogDescription>This permanently removes the appointment for {removeTarget?.patient.fullName}.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={e=>{e.preventDefault();void deleteAppointment();}} className="bg-destructive text-white hover:bg-destructive/90">Delete appointment</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
   </div>;
 }

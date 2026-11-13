@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   CirclePlus,
   LoaderCircle,
@@ -16,13 +16,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -59,6 +52,7 @@ import type {
 } from "@/features/patients/patients.types";
 
 export default function PatientsClient() {
+  const router = useRouter();
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<"all" | PatientStatus>("all");
   const [page, setPage] = useState(1);
@@ -104,6 +98,25 @@ export default function PatientsClient() {
     } catch {
       toast.error("Unable to delete this patient.");
     }
+  }
+
+  if (formOpen) {
+    return (
+      <div className="mx-auto w-full max-w-5xl space-y-6 pb-10">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-sm text-muted-foreground">Patients / {selected ? "Edit record" : "New registration"}</p>
+            <h1 className="mt-1 text-2xl font-semibold tracking-tight">{selected ? "Edit patient record" : "Register a patient"}</h1>
+            <p className="mt-1 text-sm text-muted-foreground">Enter the details needed to identify the patient and coordinate their care.</p>
+          </div>
+          <Button type="button" variant="outline" onClick={() => { setFormOpen(false); setSelected(undefined); router.replace("/patients"); }}>Back to patients</Button>
+        </div>
+        <Card className="gap-0 overflow-hidden border-border/70 py-0 shadow-none">
+          <div className="border-b px-6 py-4"><h2 className="text-sm font-semibold">Patient information</h2><p className="mt-1 text-xs text-muted-foreground">Required fields are marked by the form. You can add optional details later.</p></div>
+          <div className="p-6"><PatientForm patient={selected} onCancel={() => { setFormOpen(false); setSelected(undefined); router.replace("/patients"); }} onSuccess={() => { setFormOpen(false); setSelected(undefined); router.replace("/patients"); toast.success(selected ? "Patient updated." : "Patient created."); }} /></div>
+        </Card>
+      </div>
+    );
   }
 
   return (
@@ -348,27 +361,6 @@ export default function PatientsClient() {
           </>
         )}
       </Card>
-      <Dialog open={formOpen} onOpenChange={setFormOpen}>
-        <DialogContent className="max-h-[94vh] w-[calc(100vw-2rem)] max-w-4xl overflow-y-auto p-6 sm:p-8">
-          <DialogHeader>
-            <DialogTitle>
-              {selected ? "Edit patient" : "Add a patient"}
-            </DialogTitle>
-            <DialogDescription>
-              Enter the patient&apos;s demographic and contact details. Only
-              collect information required for care.
-            </DialogDescription>
-          </DialogHeader>
-          <PatientForm
-            patient={selected}
-            onCancel={() => setFormOpen(false)}
-            onSuccess={() => {
-              setFormOpen(false);
-              toast.success(selected ? "Patient updated." : "Patient created.");
-            }}
-          />
-        </DialogContent>
-      </Dialog>
       <AlertDialog
         open={Boolean(deleteTarget)}
         onOpenChange={(open) => {

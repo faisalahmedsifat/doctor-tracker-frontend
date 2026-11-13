@@ -47,7 +47,7 @@ export default function DashboardClient() {
           <Button variant="outline" className="h-9 gap-2 text-xs" onClick={() => void refresh()} disabled={query.isFetching}>
             {query.isFetching ? <LoaderCircle className="size-3.5 animate-spin" /> : <Activity className="size-3.5" />} Refresh data
           </Button>
-          <Button render={<Link href="/patients" />} className="h-9 gap-2 text-xs"><Plus className="size-3.5" /> Add patient</Button>
+          <Button nativeButton={false} render={<Link href="/patients?action=create" />}  className="h-9 gap-2 text-xs"><Plus className="size-3.5" /> Add patient</Button>
         </div>
       </div>
 
@@ -83,7 +83,7 @@ export default function DashboardClient() {
           <Card className="border-border/70 shadow-none">
             <div className="flex items-center justify-between px-5 py-4">
               <div><h2 className="text-sm font-semibold">Recently added patients</h2><p className="mt-1 text-xs text-muted-foreground">The latest patient records in your system</p></div>
-              <Button variant="ghost" size="sm" render={<Link href="/patients" />} className="h-8 gap-1 text-xs text-primary">View all <ArrowRight className="size-3.5" /></Button>
+              <Button nativeButton={false} variant="ghost" size="sm" render={<Link href="/patients" />} className="h-8 gap-1 text-xs text-primary">View all <ArrowRight className="size-3.5" /></Button>
             </div>
             {data.recentPatients.length === 0 ? (
               <div className="border-t px-5 py-12 text-center"><p className="text-sm font-medium">No patients yet</p><p className="mt-1 text-xs text-muted-foreground">New patient records will appear here.</p></div>

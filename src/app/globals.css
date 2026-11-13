@@ -128,3 +128,17 @@
     @apply font-sans;
   }
 }
+
+.app-shell-content {
+  padding-left: 0;
+}
+
+@media (min-width: 1024px) {
+  .app-shell-content {
+    padding-left: 248px;
+  }
+
+  .app-shell-content[data-sidebar-collapsed="true"] {
+    padding-left: 76px;
+  }
+}

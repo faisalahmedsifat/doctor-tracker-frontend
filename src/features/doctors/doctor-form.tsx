@@ -84,41 +84,44 @@ export function DoctorForm({ doctor, onSuccess, onCancel }: {
   }
 
   return (
-    <form onSubmit={form.handleSubmit(submit)} className="space-y-4">
-      <div className="grid gap-3 sm:grid-cols-2">
+    <form onSubmit={form.handleSubmit(submit)} className="space-y-6">
+      <section className="space-y-3">
+        <div><h3 className="text-sm font-semibold">Professional details</h3><p className="mt-1 text-xs text-muted-foreground">Contact, credentials and consultation fee.</p></div>
+        <div className="grid gap-4 sm:grid-cols-2">
         {fields.map((field) => (
-          <div key={field.name} className="space-y-1.5">
-            <label htmlFor={field.name} className="text-xs font-medium">{field.label}</label>
+          <div key={field.name} className="space-y-2">
+            <label htmlFor={field.name} className="text-sm font-medium">{field.label}</label>
             <Input id={field.name} type={field.type ?? "text"} placeholder={field.placeholder}
               min={field.type === "number" ? 0 : undefined}
               step={field.name === "consultationFee" ? "0.01" : "1"}
-              {...form.register(field.name)} className="h-9 text-sm" />
+              {...form.register(field.name)} className="h-11 text-sm" />
             {form.formState.errors[field.name] && <p className="text-[11px] text-destructive">{form.formState.errors[field.name]?.message}</p>}
           </div>
         ))}
         <div className="space-y-3 sm:col-span-2">
-          <div><p className="text-xs font-semibold">Weekly working hours</p><p className="text-[11px] text-muted-foreground">Leave a day disabled when the doctor is not available. Times use Asia/Dhaka (UTC+6).</p></div>
+          <div><p className="text-sm font-semibold">Weekly working hours</p><p className="text-[11px] text-muted-foreground">Leave a day disabled when the doctor is not available. Times use Asia/Dhaka (UTC+6).</p></div>
           {(["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"] as const).map((day, index) => {
             const enabled = workingHoursValues?.[index]?.enabled ?? false;
-            return <div key={day} className="grid grid-cols-[minmax(90px,1fr)_auto_auto] items-center gap-2 rounded-lg border p-2">
+            return <div key={day} className="grid grid-cols-[minmax(90px,1fr)_minmax(92px,112px)_minmax(92px,112px)] items-center gap-3 rounded-lg border px-3 py-3">
               <label className="flex items-center gap-2 text-xs"><input type="checkbox" {...form.register(`workingHours.${index}.enabled`)} />{day}</label>
-              <Input aria-label={`${day} start time`} type="time" disabled={!enabled} className="h-8 w-[112px] text-xs" {...form.register(`workingHours.${index}.startTime`)} />
-              <Input aria-label={`${day} end time`} type="time" disabled={!enabled} className="h-8 w-[112px] text-xs" {...form.register(`workingHours.${index}.endTime`)} />
+              <Input aria-label={`${day} start time`} type="time" disabled={!enabled} className="h-10 w-full text-sm" {...form.register(`workingHours.${index}.startTime`)} />
+              <Input aria-label={`${day} end time`} type="time" disabled={!enabled} className="h-10 w-full text-sm" {...form.register(`workingHours.${index}.endTime`)} />
             </div>;
           })}
         </div>
-        <div className="space-y-1.5">
-          <label className="text-xs font-medium">Account status</label>
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Account status</label>
           <Select value={currentStatus} onValueChange={(value) => form.setValue("status", value as "active" | "inactive", { shouldDirty: true })}>
-            <SelectTrigger className="h-9 w-full"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="h-11 w-full"><SelectValue>{currentStatus === "active" ? "Active" : "Inactive"}</SelectValue></SelectTrigger>
             <SelectContent><SelectItem value="active">Active</SelectItem><SelectItem value="inactive">Inactive</SelectItem></SelectContent>
           </Select>
         </div>
-      </div>
+        </div>
+      </section>
       {form.formState.errors.root && <p role="alert" className="text-xs text-destructive">{form.formState.errors.root.message}</p>}
-      <div className="flex justify-end gap-2 border-t pt-4">
-        <Button type="button" variant="outline" onClick={onCancel} disabled={pending}>Cancel</Button>
-        <Button type="submit" disabled={pending}>
+      <div className="flex flex-col-reverse gap-2 border-t pt-5 sm:flex-row sm:justify-end">
+        <Button type="button" variant="outline" onClick={onCancel} disabled={pending} className="h-11 sm:min-w-28">Cancel</Button>
+        <Button type="submit" disabled={pending} className="h-11 sm:min-w-36">
           {pending && <LoaderCircle className="mr-2 size-4 animate-spin" />}
           {doctor ? "Save changes" : "Add doctor"}
         </Button>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, ChevronRight, CirclePlus,
@@ -15,9 +15,7 @@ import { Input } from "@/components/ui/input";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import {
-  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -35,6 +33,7 @@ import type { Doctor, DoctorStatus } from "@/features/doctors/doctors.types";
 const specialties = ["Cardiology", "Dermatology", "Neurology", "Orthopedics", "Pediatrics", "Psychiatry", "General Medicine", "Gynecology", "Ophthalmology", "ENT"];
 
 export default function DoctorsPage() {
+  const router = useRouter();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
@@ -95,6 +94,18 @@ export default function DoctorsPage() {
       setDeleteTarget(null);
       queryClient.invalidateQueries({ queryKey: doctorKeys.all });
     } catch { toast.error("Unable to delete this doctor. Please try again."); }
+  }
+
+  if (formOpen) {
+    return (
+      <div className="mx-auto w-full max-w-5xl space-y-6 pb-10">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div><p className="text-sm text-muted-foreground">Doctors / {selectedDoctor ? "Edit profile" : "New profile"}</p><h1 className="mt-1 text-2xl font-semibold tracking-tight">{selectedDoctor ? "Edit doctor profile" : "Add a doctor"}</h1><p className="mt-1 text-sm text-muted-foreground">Keep professional details and clinic hours accurate for appointment booking.</p></div>
+          <Button type="button" variant="outline" onClick={() => { setFormOpen(false); setSelectedDoctor(undefined); router.replace("/doctors"); }}>Back to doctors</Button>
+        </div>
+        <Card className="gap-0 overflow-hidden border-border/70 py-0 shadow-none"><div className="border-b px-6 py-4"><h2 className="text-sm font-semibold">Professional information</h2><p className="mt-1 text-xs text-muted-foreground">Contact details, credentials, fees and weekly availability.</p></div><div className="p-6"><DoctorForm doctor={selectedDoctor} onCancel={() => { setFormOpen(false); setSelectedDoctor(undefined); router.replace("/doctors"); }} onSuccess={() => { setFormOpen(false); setSelectedDoctor(undefined); router.replace("/doctors"); toast.success(selectedDoctor ? "Doctor updated." : "Doctor created."); }} /></div></Card>
+      </div>
+    );
   }
 
   return (
@@ -173,13 +184,6 @@ export default function DoctorsPage() {
         <DialogContent className="max-h-[90vh] w-[calc(100vw-2rem)] max-w-3xl overflow-y-auto">
           <DialogHeader><DialogTitle>Patients assigned to Dr. {patientsDoctor?.firstName} {patientsDoctor?.lastName}</DialogTitle><DialogDescription>Unassigning removes the doctor relationship only. The patient&apos;s medical record remains in the clinic directory.</DialogDescription></DialogHeader>
           {assignedPatientsQuery.isLoading ? <div className="py-10 text-center text-sm text-muted-foreground">Loading assigned patients…</div> : assignedPatientsQuery.isError ? <div className="py-10 text-center text-sm text-destructive">Could not load assigned patients. <Button size="sm" variant="outline" onClick={() => void assignedPatientsQuery.refetch()}>Retry</Button></div> : (assignedPatientsQuery.data?.data.patients.length ?? 0) === 0 ? <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">No patients are currently assigned to this doctor.</div> : <div className="overflow-x-auto"><Table><TableHeader><TableRow><TableHead>Patient</TableHead><TableHead>Phone</TableHead><TableHead>Condition</TableHead><TableHead className="w-28"/></TableRow></TableHeader><TableBody>{assignedPatientsQuery.data!.data.patients.map(patient => <TableRow key={patient.id}><TableCell><p className="text-xs font-medium">{patient.firstName} {patient.lastName}</p><p className="text-[10px] text-muted-foreground">{patient.patientNumber}</p></TableCell><TableCell className="text-xs">{patient.phone}</TableCell><TableCell className="max-w-[180px] truncate text-xs">{patient.condition ?? "Not recorded"}</TableCell><TableCell><Button size="sm" variant="outline" disabled={unassignPatient.isPending} onClick={() => { if (patientsDoctor) unassignPatient.mutate({ doctorId: patientsDoctor.id, patientId: patient.id }); }}>Unassign</Button></TableCell></TableRow>)}</TableBody></Table></div>}
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={formOpen} onOpenChange={setFormOpen}>
-        <DialogContent className="max-h-[94vh] w-[calc(100vw-2rem)] max-w-4xl overflow-y-auto p-6 sm:p-8">
-          <DialogHeader><DialogTitle>{selectedDoctor ? "Edit doctor" : "Add a doctor"}</DialogTitle><DialogDescription>{selectedDoctor ? "Update this doctor's professional and contact information." : "Enter the details below to add a doctor to your clinic directory."}</DialogDescription></DialogHeader>
-          <DoctorForm doctor={selectedDoctor} onCancel={() => setFormOpen(false)} onSuccess={() => { setFormOpen(false); toast.success(selectedDoctor ? "Doctor updated." : "Doctor created."); }} />
         </DialogContent>
       </Dialog>
 

@@ -154,18 +154,20 @@ export function PatientForm({
   const statusValue = useWatch({ control: form.control, name: "status" });
 
   return (
-    <form onSubmit={form.handleSubmit(submit)} className="space-y-4">
-      <div className="grid gap-3 sm:grid-cols-2">
+    <form onSubmit={form.handleSubmit(submit)} className="space-y-6">
+      <section className="space-y-3">
+        <div><h3 className="text-sm font-semibold">Personal details</h3><p className="mt-1 text-xs text-muted-foreground">Use the patient’s legal name and date of birth where available.</p></div>
+        <div className="grid gap-4 sm:grid-cols-2">
         {fields.map((field) => (
-          <div key={field.name} className="space-y-1.5">
-            <label htmlFor={field.name} className="text-xs font-medium">
+          <div key={field.name} className="space-y-2">
+            <label htmlFor={field.name} className="text-sm font-medium">
               {field.label}
             </label>
             <Input
               id={field.name}
               type={"type" in field ? field.type : "text"}
               {...form.register(field.name)}
-              className="h-9 text-sm"
+              className="h-11 text-sm"
             />
             {form.formState.errors[field.name] && (
               <p className="text-[11px] text-destructive">
@@ -174,20 +176,20 @@ export function PatientForm({
             )}
           </div>
         ))}
-        <div className="space-y-1.5 sm:col-span-2">
-          <label htmlFor="patient-condition" className="text-xs font-medium">Patient condition / diagnosis</label>
-          <Input id="patient-condition" placeholder="e.g. Type 2 diabetes, hypertension" {...form.register("condition")} className="h-9 text-sm" />
+        <div className="space-y-2 sm:col-span-2">
+          <label htmlFor="patient-condition" className="text-sm font-medium">Patient condition / diagnosis</label>
+          <Input id="patient-condition" placeholder="e.g. Type 2 diabetes, hypertension" {...form.register("condition")} className="h-11 text-sm" />
         </div>
-        <div className="space-y-1.5">
-          <label className="text-xs font-medium">Gender</label>
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Gender</label>
           <Select
             value={genderValue}
             onValueChange={(value) =>
               form.setValue("gender", value as Values["gender"])
             }
           >
-            <SelectTrigger className="h-9 w-full">
-              <SelectValue />
+            <SelectTrigger id="patient-gender" className="h-11 w-full">
+              <SelectValue>{genderValue === "prefer_not_to_say" ? "Prefer not to say" : genderValue === "female" ? "Female" : genderValue === "male" ? "Male" : "Other"}</SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="female">Female</SelectItem>
@@ -199,13 +201,13 @@ export function PatientForm({
             </SelectContent>
           </Select>
         </div>
-        <div className="space-y-1.5">
-          <label className="text-xs font-medium">Blood group</label>
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Blood group</label>
           <Select
             value={bloodGroupValue}
             onValueChange={(value) => form.setValue("bloodGroup", value ?? "")}
           >
-            <SelectTrigger className="h-9 w-full">
+            <SelectTrigger className="h-11 w-full">
               <SelectValue placeholder="Not specified" />
             </SelectTrigger>
             <SelectContent>
@@ -219,16 +221,16 @@ export function PatientForm({
             </SelectContent>
           </Select>
         </div>
-        <div className="space-y-1.5">
-          <label className="text-xs font-medium">Record status</label>
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Record status</label>
           <Select
             value={statusValue}
             onValueChange={(value) =>
               form.setValue("status", value as Values["status"])
             }
           >
-            <SelectTrigger className="h-9 w-full">
-              <SelectValue />
+            <SelectTrigger className="h-11 w-full">
+              <SelectValue>{statusValue === "active" ? "Active" : "Inactive"}</SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="active">Active</SelectItem>
@@ -236,8 +238,8 @@ export function PatientForm({
             </SelectContent>
           </Select>
         </div>
-        <div className="space-y-1.5 sm:col-span-2">
-          <label className="text-xs font-medium">Assigned doctor</label>
+        <div className="space-y-2 sm:col-span-2">
+          <label className="text-sm font-medium">Assigned doctor</label>
           <SearchableSelect
             id="patient-assigned-doctor"
             value={assignedDoctorValue || "unassigned"}
@@ -256,22 +258,24 @@ export function PatientForm({
           />
           {doctors.isError && <p className="text-[11px] text-destructive">Could not load doctors. Please try again.</p>}
         </div>
-      </div>
+        </div>
+      </section>
       {form.formState.errors.root && (
         <p role="alert" className="text-xs text-destructive">
           {form.formState.errors.root.message}
         </p>
       )}
-      <div className="flex justify-end gap-2 border-t pt-4">
+      <div className="flex flex-col-reverse gap-2 border-t pt-5 sm:flex-row sm:justify-end">
         <Button
           type="button"
           variant="outline"
           onClick={onCancel}
           disabled={pending}
+          className="h-11 sm:min-w-28"
         >
           Cancel
         </Button>
-        <Button type="submit" disabled={pending}>
+        <Button type="submit" disabled={pending} className="h-11 sm:min-w-36">
           {pending && <LoaderCircle className="mr-2 size-4 animate-spin" />}
           {patient ? "Save changes" : "Add patient"}
         </Button>
