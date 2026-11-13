@@ -229,6 +229,7 @@ try {
   await appointmentDialog.locator("#appointment-start").fill(localDateTime);
   await appointmentDialog.locator("#appointment-reason").fill("E2E consultation");
   await appointmentDialog.getByRole("button", { name: "Schedule appointment" }).click();
+  await page.getByPlaceholder("Search appointments...").fill("Browser Updated");
   const appointmentRow = page.getByRole("row").filter({ hasText: "Browser Updated" });
   await appointmentRow.waitFor();
   const appointmentRecord = (await Appointment.find({}).lean()).find((item) => String(item.doctor) === appointmentDoctor.id && String(item.patient) === patientId);
