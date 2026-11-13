@@ -278,8 +278,11 @@ try {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.getByRole("tab", { name: "Upcoming" }).click();
   await page.getByRole("button", { name: "Book appointment" }).first().click();
-  await page.screenshot({ path: "docs/screenshots/appointment-form-desktop.png", fullPage: true });
   await page.getByLabel("Patient phone or patient number").fill("+8801700000088");
+  await page.waitForFunction(() => {
+    const button = [...document.querySelectorAll("button")].find((item) => item.textContent?.includes("Choose the matching patient"));
+    return Boolean(button && !button.disabled);
+  });
   await page.getByRole("button", { name: "Choose the matching patient…" }).click();
   const patientPicker = page.getByRole("combobox", { name: "Search patient name or number…" });
   await patientPicker.fill("Browser Updated");
@@ -291,8 +294,24 @@ try {
   const appointmentDate = new Date(Date.now() + 4 * 86_400_000);
   appointmentDate.setHours(10, 0, 0, 0);
   const localDateTime = new Date(appointmentDate.getTime() - appointmentDate.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
+  const bookedSlotDateTime = `${localDateTime.slice(0, 10)}T10:30:00+06:00`;
+  const prebookedSlotResponse = await page.request.post("http://localhost:4000/api/v1/appointments", {
+    data: { patientId, doctorId: appointmentDoctor.id, startAt: new Date(bookedSlotDateTime).toISOString(), durationMinutes: 30, reason: "Existing appointment for availability test" },
+  });
+  if (!prebookedSlotResponse.ok()) throw new Error(`Could not create prebooked availability fixture: ${await prebookedSlotResponse.text()}`);
+  const prebookedSlot = (await prebookedSlotResponse.json()).data.appointment;
   await page.locator("#appointment-start").fill(localDateTime);
-  await page.getByRole("button", { name: /10:00/ }).click();
+  await page.getByText("Weekly clinic hours · Bangladesh time").waitFor();
+  await page.screenshot({ path: "docs/screenshots/appointment-form-desktop.png", fullPage: true });
+  await page.getByText("Booked appointments", { exact: true }).waitFor();
+  const occupiedSlot = page.getByRole("button", { name: /10:30.*Booked/ });
+  await occupiedSlot.waitFor();
+  if (!(await occupiedSlot.isDisabled())) throw new Error("An already-booked time slot was still selectable in the receptionist schedule.");
+  if (!(await page.getByText(/10:30.*11:00/).count())) throw new Error("The pre-existing appointment was not shown in the selected doctor's daily schedule.");
+  const removeFixtureResponse = await page.request.delete(`http://localhost:4000/api/v1/appointments/${prebookedSlot.id}`);
+  if (!removeFixtureResponse.ok()) throw new Error("Could not remove the temporary booked-slot fixture.");
+  await page.waitForTimeout(150);
+  await page.getByRole("button", { name: /10:00.*Selected/ }).click();
   await page.locator("#appointment-reason").fill("E2E consultation");
   const bookingResponsePromise = page.waitForResponse(response => response.request().method() === "POST" && response.url().includes("/api/v1/appointments"));
   await page.getByRole("button", { name: "Confirm booking" }).click();
@@ -307,7 +326,7 @@ try {
     data: { patientId, doctorId: appointmentDoctor.id, startAt: new Date(`${localDateTime}:00+06:00`).toISOString(), durationMinutes: 30 },
   });
   if (duplicateResponse.status() !== 409) throw new Error("Overlapping appointment was not rejected.");
-  await appointmentRow.locator("button").nth(1).click();
+  await appointmentRow.getByRole("button", { name: "Edit appointment" }).click();
   await page.getByLabel("Reason for visit").fill("Updated E2E consultation");
   await page.getByRole("button", { name: "Save appointment" }).click();
   let editedAppointment = await Appointment.findById(appointmentRecord._id).lean();
@@ -324,7 +343,7 @@ try {
     updatedAppointment = await Appointment.findById(appointmentRecord._id).lean();
   }
   if (updatedAppointment?.status !== "confirmed") throw new Error("Appointment status update did not persist.");
-  await appointmentRow.locator("button").nth(2).click();
+  await appointmentRow.getByRole("button", { name: "Delete appointment" }).click();
   const deleteAppointmentResponsePromise = page.waitForResponse(
     (response) => response.request().method() === "DELETE" && response.url().includes("/api/v1/appointments/"),
   );
