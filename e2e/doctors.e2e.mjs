@@ -256,9 +256,19 @@ try {
   }
   if (updatedAppointment?.status !== "confirmed") throw new Error("Appointment status update did not persist.");
   await appointmentRow.getByRole("button", { name: /Delete appointment for/ }).click();
+  const deleteAppointmentResponsePromise = page.waitForResponse(
+    (response) => response.request().method() === "DELETE" && response.url().includes("/api/v1/appointments/"),
+  );
   await page.getByRole("alertdialog").getByRole("button", { name: "Delete appointment" }).click();
+  const deleteAppointmentResponse = await deleteAppointmentResponsePromise;
+  if (!deleteAppointmentResponse.ok()) throw new Error(`Appointment delete API failed: ${deleteAppointmentResponse.status()}`);
   await appointmentRow.waitFor({ state: "detached" });
-  if (await Appointment.findById(appointmentRecord._id).lean()) throw new Error("Appointment deletion did not persist.");
+  let deletedAppointment = await Appointment.findById(appointmentRecord._id).lean();
+  for (let attempt = 0; deletedAppointment && attempt < 20; attempt += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    deletedAppointment = await Appointment.findById(appointmentRecord._id).lean();
+  }
+  if (deletedAppointment) throw new Error("Appointment deletion did not persist.");
   await Appointment.deleteMany({ doctor: appointmentDoctor.id }).catch(() => undefined);
   await Doctor.deleteOne({ _id: appointmentDoctor.id }).catch(() => undefined);
 
